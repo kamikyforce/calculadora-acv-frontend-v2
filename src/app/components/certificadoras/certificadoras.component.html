@@ -1,0 +1,983 @@
+<div class="certificadoras-container">
+  <!-- Header following Gov.br Design System -->
+  <header class="br-header compact">
+    <div class="container-lg">
+      <div class="header-top">
+        <div class="header-logo">
+          <img src="/assets/bndeslogo.png" alt="BNDES" class="logo" />
+        </div>
+
+        <div class="header-actions">
+          <div class="header-functions">
+            <button 
+              class="br-button secondary small" 
+              type="button" 
+              aria-label="Alto Contraste"
+              [class.active]="isHighContrast"
+              (click)="toggleHighContrast()">
+              <i class="fas fa-adjust" aria-hidden="true"></i>
+              <span class="button-text">Alto Contraste</span>
+            </button>
+            <button 
+              class="br-button secondary small" 
+              type="button" 
+              aria-label="VLibras"
+              [class.active]="isVLibrasActive"
+              (click)="toggleVLibras()">
+              <i class="fas fa-universal-access" aria-hidden="true"></i>
+              <span class="button-text">VLibras</span>
+            </button>
+            <button class="br-button secondary small" type="button" aria-label="Sair" (click)="logout()">
+              <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+              <span class="button-text">Sair</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container-lg">
+      <!-- Page Header com Menu Hambúrguer -->
+      <div class="page-header">
+        <div class="page-title-section">
+          <div class="title-with-menu">
+            <!-- Hamburger Menu posicionado ao lado do título -->
+            <app-hamburger-menu [menuItems]="menuItems" [isOpen]="isMenuOpen" (menuToggle)="onMenuToggle($event)"
+              (itemClick)="onMenuItemClick($event)">
+            </app-hamburger-menu>
+            <div class="title-content">
+              <h1 class="page-title">Certificadoras</h1>
+              <p class="page-subtitle">Gerencie certificadoras e acompanhe seus status</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search and Actions Section -->
+      <div class="search-actions-section">
+        <div class="search-input">
+          <div class="br-input">
+            <input type="text" placeholder="O que você procura?" class="form-control" [(ngModel)]="searchTerm"
+              (input)="onSearch()">
+            <button class="search-button" type="button">
+              <i class="fas fa-search" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="search-actions">
+          <button class="br-button primary" type="button" (click)="openCreateModal()">
+            <i class="fas fa-plus" aria-hidden="true"></i>
+            Criar certificadora
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Section -->
+      <div class="table-section">
+        <div class="table-responsive">
+          <table class="br-table">
+            <thead>
+              <tr>
+                <th class="table-header">CNPJ</th>
+                <th class="table-header">Certificadora</th>
+                <th class="table-header">Data do cadastro</th>
+                <th class="table-header">Inv. tratados</th>
+                <th class="table-header">Estado</th>
+                <th class="table-header">Tipo de certificador</th>
+                <th class="table-header">Status</th>
+                <th class="table-header">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let certificadora of paginatedData">
+                <td>{{ getFormattedCNPJ(certificadora.cnpj) }}</td>
+                <td>{{ certificadora.nome }}</td>
+                <td>{{ certificadora.dataCadastro }}</td>
+                <td>{{ certificadora.inventariosProcessados }}</td>
+                <td>{{ certificadora.estado }}</td>
+                <td>
+                  <span *ngFor="let tipo of tiposCertificador">
+                    <span *ngIf="tipo.value === certificadora.tipoCertificador">{{ tipo.label }}</span>
+                  </span>
+                </td>
+                <td>
+                  <!-- Gov.br Switch Component -->
+                  <div class="br-switch small">
+                    <input [id]="'switch-' + certificadora.id" type="checkbox"
+                      [checked]="certificadora.ativo" (click)="toggleStatus(certificadora.id); $event.preventDefault()" />
+                    <label [for]="'switch-' + certificadora.id">
+                      <span class="switch-data" [attr.data-enabled]="'Ativo'" [attr.data-disabled]="'Inativo'">
+                      </span>
+                    </label>
+                  </div>
+                </td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="br-button secondary small" type="button"
+                      (click)="editarCertificadora(certificadora.id)" aria-label="Editar">
+                      <i class="fas fa-edit" aria-hidden="true"></i>
+                    </button>
+                    <button class="br-button danger small" type="button"
+                      (click)="excluirCertificadora(certificadora.id)" aria-label="Excluir">
+                      <i class="fas fa-trash" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-section">
+          <div class="pagination-info">
+            <span>Exibir</span>
+            <select [(ngModel)]="itemsPerPage" class="items-per-page" (change)="changeItemsPerPage(itemsPerPage)">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+            <span>{{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage, totalItems) }} de
+              {{ totalItems }} itens</span>
+          </div>
+          <div class="pagination-controls">
+            <span>Página</span>
+            <select [(ngModel)]="currentPage" class="page-select" (change)="changePage(currentPage)">
+              <option *ngFor="let page of [].constructor(totalPages); let i = index" [value]="i + 1">
+                {{ i + 1 }}
+              </option>
+            </select>
+            <div class="pagination-buttons">
+              <button class="br-button secondary small" type="button" (click)="changePage(currentPage - 1)"
+                [disabled]="currentPage === 1">
+                <i class="fas fa-chevron-left" aria-hidden="true"></i>
+              </button>
+              <button class="br-button secondary small" type="button" (click)="changePage(currentPage + 1)"
+                [disabled]="currentPage === totalPages">
+                <i class="fas fa-chevron-right" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Create Certificadora Modal -->
+  <div class="modal-overlay" *ngIf="showCreateModal">
+    <div class="modal-content modal-right" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">Criar certificadora</h2>
+        <button class="modal-close" type="button" (click)="confirmCloseCreateModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form class="certificadora-form" (ngSubmit)="$event.preventDefault()" #createForm="ngForm">
+          <!-- Top row: CNPJ, Certificadora, Estado -->
+          <div class="form-row-top">
+            <div class="form-group">
+              <label for="cnpj" class="br-label bold-label">CNPJ</label>
+              <div class="br-input">
+                <div class="cnpj-input-container">
+                  <input type="text" id="cnpj" name="cnpj" [(ngModel)]="novaCertificadora.cnpj"
+                    (input)="formatCNPJ($event)" placeholder="55.111.170/0001-35" class="form-control" required
+                    maxlength="18" #cnpjInput="ngModel" />
+                  <div *ngIf="isCnpjLoading" class="cnpj-loading-indicator">
+                    <div class="spinner-border-sm" role="status">
+                      <span class="sr-only">Verificando...</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div *ngIf="cnpjInput.invalid && createForm.submitted" class="error-message">
+                CNPJ é obrigatório
+              </div>
+              <div *ngIf="cnpjJaExiste" class="error-message">
+                Este CNPJ já está cadastrado
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="nome" class="br-label bold-label">Certificadora</label>
+              <div class="br-input">
+                <input type="text" id="nome" name="nome" [(ngModel)]="novaCertificadora.nome"
+                  placeholder="Piracanjuba Laticínios" class="form-control" required #nomeInput="ngModel" />
+              </div>
+              <div *ngIf="nomeInput.invalid && createForm.submitted" class="error-message">
+                Nome é obrigatório
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="estado" class="br-label bold-label">Estado</label>
+              <div class="br-select">
+                <select id="estado" name="estado" [(ngModel)]="novaCertificadora.estado" class="form-control" required>
+                  <option *ngFor="let estado of estados" [value]="estado.sigla">{{ estado.sigla }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom row: Data do cadastro, Inv. tratados, Tipo de certificador, Status -->
+          <div class="form-row-bottom">
+            <!-- Fix the date input in create modal -->
+            <div class="form-group">
+              <label for="dataCadastro" class="br-label bold-label">Data do cadastro</label>
+              <div class="br-input">
+                <input type="text" id="dataCadastro" name="dataCadastro" [value]="currentDateFormatted"
+                  class="form-control readonly-field" readonly />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="inventarios" class="br-label bold-label">Inv. tratados</label>
+              <div class="br-input">
+                <input type="number" id="inventarios" name="inventarios" value="0" class="form-control readonly-field" readonly />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="tipoCertificador" class="br-label bold-label">Tipo de certificador</label>
+              <div class="br-select">
+                <select id="tipoCertificador" name="tipoCertificador" [(ngModel)]="novaCertificadora.tipoCertificador"
+                  class="form-control" required>
+                  <option *ngFor="let tipo of tiposCertificador" [value]="tipo.value">{{ tipo.label }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="status" class="br-label bold-label">Status</label>
+              <div class="br-switch">
+                <input type="checkbox" id="status" name="status" [(ngModel)]="novaCertificadora.ativo" (change)="onCertificadoraStatusChange()"/>
+                <label for="status">
+                  <span class="switch-data" data-enabled="Ativo" data-disabled="Inativo"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Users Section -->
+           <div class="users-section">
+             <h3 class="users-title">Usuários da Certificadora</h3>
+
+            <div class="table-header">
+              <div class="table-row">
+                <div class="header-text">CPF</div>
+                <div class="header-text">Nome</div>
+                <div class="header-text">Data de cadastro</div>
+                <div class="header-text">Status</div>
+                <div class="header-text">Ações</div>
+              </div>
+            </div>
+
+            <div class="table-body">
+              <!-- Usuários existentes -->
+              <div class="table-row" *ngFor="let user of certificadoraUsers; let i = index">
+                <input type="text" [(ngModel)]="user.cpf" [name]="'user-cpf-' + i" placeholder="207.299.480-21"
+                  maxlength="14" readonly />
+                <input type="text" [(ngModel)]="user.nome" [name]="'user-nome-' + i" placeholder="Nome do usuário"
+                  readonly />
+                <input type="text" [(ngModel)]="user.dataCadastro" [name]="'user-data-' + i" readonly />
+                <div class="br-switch">
+                  <input type="checkbox" [(ngModel)]="user.ativo" [name]="'user-status-' + i"
+                    [id]="'user-status-' + i" (change)="onUserStatusChange(user, $event)" [disabled]="!novaCertificadora.ativo" />
+                  <label [for]="'user-status-' + i">
+                    <span class="switch-data" data-enabled="Ativo" data-disabled="Inativo"></span>
+                  </label>
+                </div>
+                <div class="action-buttons">
+                  <button type="button" class="br-button danger small" (click)="removeUser(i)"
+                    aria-label="Remover usuário">
+                    <i class="fas fa-trash" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Múltiplas linhas de usuários -->
+              <div class="table-row new-user-row" *ngFor="let row of userRows; let i = index">
+                <div class="cpf-input-container">
+                  <input type="text" [(ngModel)]="row.cpf" [name]="'new-user-cpf-' + i" placeholder="000.000.000-00"
+                    (input)="formatCPFInputForRow($event, row)" maxlength="14" 
+                    [ngClass]="{'invalid-cpf': row.cpfJaExisteEmOutraCertificadora || row.cpfInvalido}" />
+                  <div *ngIf="row.isCpfLoading || row.isCpfVerificando" class="cpf-loading-indicator">
+                    <div class="spinner-border-sm" role="status">
+                      <span class="sr-only">Carregando...</span>
+                    </div>
+                  </div>
+                  <div *ngIf="row.cpfJaExisteEmOutraCertificadora" class="cpf-error-indicator">
+                     <i class="fas fa-exclamation-triangle" aria-hidden="true" title="CPF já cadastrado em outra certificadora"></i>
+                   </div>
+
+                   <div *ngIf="row.cpfInvalido" class="cpf-error-indicator">
+                     <i class="fas fa-times-circle" aria-hidden="true" title="CPF inválido"></i>
+                   </div>
+                 </div>
+                 <div *ngIf="row.cpfJaExisteEmOutraCertificadora" class="cpf-error-message">
+                    <div class="text-danger">Este CPF já está cadastrado em outra certificadora</div>
+                  </div>
+
+                  <div *ngIf="row.cpfInvalido" class="cpf-error-message">
+                    <div class="text-danger">CPF inválido</div>
+                  </div>
+                <input type="text" [(ngModel)]="row.nome" [name]="'userrow-nome-' + i" placeholder="Nome do usuário" class="readonly-field" readonly />
+                <input type="text" [value]="row.dataCadastro" [name]="'userrow-data-' + i" class="readonly-field" readonly />
+                <div class="br-switch">
+                  <input type="checkbox" [(ngModel)]="row.ativo" [name]="'userrow-status-' + i" [id]="'userrow-status-' + i" [disabled]="!novaCertificadora.ativo" />
+                  <label [for]="'userrow-status-' + i">
+                    <span class="switch-data" data-enabled="Ativo" data-disabled="Inativo"></span>
+                  </label>
+                </div>
+                <div class="action-button">
+                  <button type="button" class="br-button secondary small" (click)="removeUserRow(i)"
+                    *ngIf="userRows.length > 1 || (row.cpf && row.cpf.trim() !== '') || (row.nome && row.nome.trim() !== '')" aria-label="Remover linha">
+                    <i class="fas fa-trash" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="add-user-button">
+              <button type="button" class="br-button" (click)="addUserRow()"
+                [disabled]="!canAddNewRow()">
+                <i class="fas fa-plus" aria-hidden="true"></i>
+                Adicionar usuário
+              </button>
+            </div>
+          </div>
+
+          <!-- Modal Actions -->
+          <div class="modal-actions">
+            <button type="button" class="br-button secondary" (click)="confirmCloseCreateModal()">
+              Cancelar
+            </button>
+            <button type="submit" class="br-button primary" (click)="confirmSubmitCreate()">
+              Confirmar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Certificadora Modal -->
+  <div class="modal-overlay" *ngIf="showEditModal">
+    <div class="modal-content modal-right" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">Editar certificadora</h2>
+        <button class="modal-close" type="button" (click)="confirmCloseEditModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-description">Edite os dados da certificadora <strong>{{ selectedItem?.nome }}</strong>.</p>
+
+        <form class="certificadora-form" (ngSubmit)="$event.preventDefault()" #editForm="ngForm">
+          <!-- CNPJ Input -->
+          <div class="form-group">
+            <label for="edit-cnpj" class="br-label bold-label">CNPJ</label>
+            <div class="br-input">
+              <input type="text" id="edit-cnpj" name="cnpj" [(ngModel)]="novaCertificadora.cnpj"
+                placeholder="12.345.678/0001-90" class="form-control readonly-field" readonly />
+            </div>
+          </div>
+
+          <!-- Nome Input -->
+          <div class="form-group">
+            <label for="edit-nome" class="br-label bold-label">Certificadora</label>
+            <div class="br-input">
+              <input type="text" id="edit-nome" name="nome" [(ngModel)]="novaCertificadora.nome"
+                placeholder="Nome da certificadora" class="form-control readonly-field" readonly />
+            </div>
+          </div>
+
+          <!-- Estado and Tipo row -->
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-estado" class="br-label bold-label">Estado</label>
+              <div class="br-select">
+                <select id="edit-estado" name="estado" [(ngModel)]="novaCertificadora.estado" class="form-control"
+                  required>
+                  <option *ngFor="let estado of estados" [value]="estado.sigla">{{ estado.sigla }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="edit-tipoCertificador" class="br-label bold-label">Tipo de certificador</label>
+              <div class="br-select">
+                <select id="edit-tipoCertificador" name="tipoCertificador"
+                  [(ngModel)]="novaCertificadora.tipoCertificador" class="form-control" required>
+                  <option *ngFor="let tipo of tiposCertificador" [value]="tipo.value">{{ tipo.label }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-dataCadastro" class="br-label bold-label">Data do cadastro</label>
+              <div class="br-input">
+                <input type="text" id="edit-dataCadastro" name="dataCadastro" [value]="selectedItem?.dataCadastro"
+                  class="form-control readonly-field" readonly />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="edit-status" class="br-label bold-label">Status</label>
+              <div class="br-switch">
+                <input type="checkbox" id="edit-status" name="status" [(ngModel)]="novaCertificadora.ativo" (change)="onCertificadoraStatusChange()"/>
+                <label for="edit-status">
+                  <span class="switch-data" data-enabled="Ativo" data-disabled="Inativo"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="users-section">
+            <h3 class="users-title">Usuários da Certificadora</h3>
+            <div class="users-table">
+              <div class="table-header">
+                <div class="table-row">
+                  <div class="header-text">CPF</div>
+                  <div class="header-text">Nome</div>
+                  <div class="header-text">Data de cadastro</div>
+                  <div class="header-text">Status</div>
+                  <div class="header-text">Ações</div>
+                </div>
+              </div>
+              <div class="table-body">
+                <!-- Múltiplas linhas de usuários -->
+                <div class="table-row" *ngFor="let row of userRows; let i = index">
+                  <div class="cpf-input-container">
+                    <input type="text" [(ngModel)]="row.cpf" [name]="'edit-userrow-cpf-' + i" placeholder="000.000.000-00"
+                      (input)="formatCPFInputForRow($event, row)" maxlength="14" 
+                      [ngClass]="{'invalid-cpf': row.cpfJaExisteEmOutraCertificadora || row.cpfNaoEncontrado || row.cpfInvalido}" />
+                    <div *ngIf="row.isCpfLoading" class="cpf-loading-indicator">
+                      <div class="spinner-border-sm" role="status">
+                        <span class="sr-only">Carregando...</span>
+                      </div>
+                    </div>
+                    <div *ngIf="row.cpfJaExisteEmOutraCertificadora" class="cpf-error-indicator">
+                      <i class="fas fa-exclamation-triangle" aria-hidden="true" title="CPF já cadastrado em outra certificadora"></i>
+                    </div>
+
+                    <div *ngIf="row.cpfInvalido" class="cpf-error-indicator">
+                      <i class="fas fa-times-circle" aria-hidden="true" title="CPF inválido"></i>
+                    </div>
+                  </div>
+                  <div *ngIf="row.cpfJaExisteEmOutraCertificadora" class="cpf-error-message">
+                    <div class="text-danger">Este CPF já está cadastrado em outra certificadora</div>
+                  </div>
+
+                  <div *ngIf="row.cpfInvalido" class="cpf-error-message">
+                    <div class="text-danger">CPF inválido</div>
+                  </div>
+                  <input type="text" [(ngModel)]="row.nome" [name]="'edit-userrow-nome-' + i" placeholder="Nome do usuário" class="readonly-field" readonly />
+                  <input type="text" [value]="row.dataCadastro" [name]="'edit-userrow-data-' + i" class="readonly-field" readonly />
+                  <div class="br-switch">
+                    <input type="checkbox" [(ngModel)]="row.ativo" [name]="'edit-userrow-status-' + i" [id]="'edit-userrow-status-' + i" (change)="onUserStatusChange(row, $event)" [disabled]="!novaCertificadora.ativo" />
+                    <label [for]="'edit-userrow-status-' + i">
+                      <span class="switch-data" data-enabled="Ativo" data-disabled="Inativo"></span>
+                    </label>
+                  </div>
+                  <div class="action-buttons">
+                    <button type="button" class="br-button secondary small" (click)="removeUserRow(i)"
+                      *ngIf="userRows.length > 1 || (row.cpf && row.cpf.trim() !== '') || (row.nome && row.nome.trim() !== '')" aria-label="Remover linha">
+                      <i class="fas fa-trash" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="add-user-button">
+              <button type="button" class="br-button" (click)="addUserRow()"
+                [disabled]="!canAddNewRow()">
+                <i class="fas fa-plus" aria-hidden="true"></i>
+                Adicionar usuário
+              </button>
+            </div>
+          </div>
+
+          <!-- Modal Actions -->
+          <div class="modal-actions">
+            <button type="button" class="br-button secondary" (click)="confirmCloseEditModal()">
+              Cancelar
+            </button>
+            <button type="submit" class="br-button primary" (click)="confirmSubmitEdit()">
+              Confirmar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal with Gov.br Design System -->
+  <div class="br-scrim foco" *ngIf="showDeleteModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="deleteModalScrim" (click)="closeDeleteModal()">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Confirmar exclusão</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeDeleteModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Tem certeza que deseja excluir a certificadora <strong>{{ selectedItem?.nome }}</strong> (CNPJ: {{
+            getFormattedCNPJ(selectedItem?.cnpj || '') }})?
+          </p>
+          <p class="delete-warning text-warning-dark">
+            Esta ação não pode ser desfeita e todos os dados relacionados serão perdidos.
+          </p>
+        </div>
+      </div>
+
+      <div class="br-modal-footer">
+        <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeDeleteModal()">
+          Cancelar
+        </button>
+        <button type="button" class="br-button danger" (click)="confirmDelete()">
+          <i class="fas fa-trash mr-1" aria-hidden="true"></i>
+          Excluir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal CPF Não Encontrado -->
+  <div class="br-scrim foco" *ngIf="showCpfNotFoundModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="cpfNotFoundModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">CPF não encontrado</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeCpfNotFoundModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            O CPF informado não foi encontrado na base de dados.<br><br>
+            Verifique se o CPF está correto ou se o usuário já foi cadastrado no sistema.
+          </p>
+        </div>
+      </div>
+
+      <div class="br-modal-footer">
+        <button class="br-button secondary" type="button" (click)="closeCpfNotFoundModal()">
+          Entendi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal User Error -->
+  <div class="br-scrim foco" *ngIf="showUserErrorModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="userErrorModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Erro de Validação</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeUserErrorModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Tem certeza que deseja excluir a certificadora <strong>{{ selectedItem?.nome }}</strong> (CNPJ: {{
+            getFormattedCNPJ(selectedItem?.cnpj || '') }})?
+          </p>
+          <p class="delete-warning text-warning-dark">
+            Esta ação não pode ser desfeita e todos os dados relacionados serão perdidos.
+          </p>
+        </div>
+      </div>
+
+      <div class="br-modal-footer d-flex align-items-center justify-content-between">
+        <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeDeleteModal()">
+          Cancelar
+        </button>
+        <button type="button" class="br-button danger" (click)="confirmDelete()">
+          <i class="fas fa-trash mr-1" aria-hidden="true"></i>
+          Excluir certificadora
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmação para cancelar -->
+  <div class="br-scrim foco" *ngIf="showCancelConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="cancelConfirmModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Confirmar cancelamento</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeCancelConfirmModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Tem certeza que deseja cancelar? Todas as informações preenchidas serão perdidas.
+          </p>
+        </div>
+      </div>
+
+      <div class="br-modal-footer d-flex align-items-center justify-content-between">
+        <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeCancelConfirmModal()">
+        Continuar editando
+        </button>
+        <button type="button" class="br-button danger" (click)="confirmCancel()">
+          <i class="fas fa-times mr-1" aria-hidden="true"></i>
+          Sim, cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmação para salvar -->
+  <div class="br-scrim foco" *ngIf="showSaveConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="saveConfirmModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Confirmar {{ isEditMode ? 'alteração' : 'criação' }}</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeSaveConfirmModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-check-circle text-success" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Tem certeza que deseja {{ isEditMode ? 'salvar as alterações' : 'criar a certificadora' }}?
+          </p>
+        </div>
+      </div>
+
+      <div class="br-modal-footer d-flex align-items-center justify-content-between">
+        <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeSaveConfirmModal()">
+        Cancelar
+      </button>
+        <button type="button" class="br-button primary" (click)="confirmSave()">
+          <i class="fas fa-check mr-1" aria-hidden="true"></i>
+          {{ isEditMode ? 'Confirmar' : 'Confirmar criação' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmação para mudança de status -->
+  <div class="br-scrim foco" *ngIf="showStatusConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="statusConfirmModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Confirmar mudança de status</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeStatusConfirmModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-question-circle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Tem certeza que deseja {{ pendingStatusChange?.newStatus ? 'ativar' : 'inativar' }} a certificadora 
+            <strong>{{ selectedItem?.nome }}</strong>?
+          </p>
+        </div>
+      </div>
+
+      <div class="br-modal-footer d-flex align-items-center justify-content-between">
+        <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeStatusConfirmModal()">
+          Cancelar
+        </button>
+        <button type="button" class="br-button primary" (click)="confirmStatusChange()">
+          <i class="fas fa-check mr-1" aria-hidden="true"></i>
+          {{ pendingStatusChange?.newStatus ? 'Ativar' : 'Inativar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmação de exclusão de usuário -->
+  <div class="br-scrim foco" *ngIf="showDeleteUserModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="deleteUserModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Confirmar exclusão</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeDeleteUserModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Tem certeza que deseja remover o usuário <strong>{{ selectedUserIndex !== null ? certificadoraUsers[selectedUserIndex].nome : '' }}</strong> (CPF: {{ selectedUserIndex !== null ? formatCPFDisplay(certificadoraUsers[selectedUserIndex].cpf || '') : '' }}) da lista?
+          </p>
+          <p class="delete-warning text-warning-dark">
+            Esta ação removerá o usuário da lista atual, mas não o excluirá permanentemente do sistema.
+          </p>
+        </div>
+      </div>
+
+      <div class="br-modal-footer d-flex align-items-center justify-content-between">
+        <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeDeleteUserModal()">
+          Cancelar
+        </button>
+        <button type="button" class="br-button danger" (click)="confirmDeleteUser()">
+          <i class="fas fa-trash mr-1" aria-hidden="true"></i>
+          Remover usuário
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmação de exclusão de linha de usuário -->
+  <div class="br-scrim foco" *ngIf="showDeleteUserRowModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="deleteUserRowModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Confirmar remoção</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeDeleteUserRowModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Tem certeza que deseja remover esta linha de usuário?
+          </p>
+          <p class="delete-warning text-warning-dark">
+            Os dados preenchidos nesta linha serão perdidos.
+          </p>
+        </div>
+      </div>
+
+      <div class="br-modal-footer d-flex align-items-center justify-content-between">
+        <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeDeleteUserRowModal()">
+          Cancelar
+        </button>
+        <button type="button" class="br-button danger" (click)="confirmDeleteUserRow()">
+          <i class="fas fa-trash mr-1" aria-hidden="true"></i>
+          Remover linha
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de CPF já existente -->
+  <div class="br-scrim foco" *ngIf="showCpfExistsModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="cpfExistsModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">CPF já cadastrado</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeCpfExistsModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message" *ngIf="cpfExistsInfo">
+            O usuário com este CPF já está ativo na {{ cpfExistsInfo.tipo }}: <strong>{{ cpfExistsInfo.nome }}</strong>.<br><br>
+            Para adicionar este usuário nesta certificadora, você deve primeiro desativá-lo no local onde está atualmente ativo.
+          </p>
+        </div>
+      </div>
+
+      <div class="br-modal-footer">
+        <button class="br-button secondary" type="button" (click)="closeCpfExistsModal()">
+          Entendi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de erro - usuário obrigatório -->
+  <div class="br-scrim foco" *ngIf="showUserErrorModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="userErrorModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Usuário obrigatório</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeUserErrorModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            É necessário adicionar pelo menos um usuário à certificadora.
+          </p>
+        </div>
+      </div>
+
+      <div class="br-modal-footer d-flex align-items-center justify-content-center">
+        <button type="button" class="br-button primary" (click)="closeUserErrorModal()">
+          <i class="fas fa-check mr-1" aria-hidden="true"></i>
+          Entendi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de usuário ativo -->
+  <div class="br-scrim foco" *ngIf="showUserActiveModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="userActiveModalScrim" (click)="closeUserActiveModal()">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Usuário já ativo</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeUserActiveModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message" *ngIf="usuarioAtivoInfo">
+            O usuário com este CPF já está ativo na {{ usuarioAtivoInfo.tipo === 'certificadora' ? 'certificadora' : 'indústria' }}: <strong>{{ usuarioAtivoInfo.nome }}</strong>.<br><br>
+            Não é possível adicionar o mesmo usuário em múltiplas entidades simultaneamente.
+          </p>
+        </div>
+      </div>
+
+      <div class="br-modal-footer justify-content-center">
+        <button type="button" class="br-button primary" (click)="closeUserActiveModal()">
+          <i class="fas fa-check mr-1" aria-hidden="true"></i>
+          Entendi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de usuário inativo no administrador -->
+  <div class="br-scrim foco" *ngIf="showUserInactiveAdminModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="userInactiveAdminModalScrim" (click)="closeUserInactiveAdminModal()">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Usuário inativo no administrador</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeUserInactiveAdminModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Este usuário está inativo no módulo de administradores.<br><br>
+            Para ativá-lo nesta certificadora, é necessário primeiro reativá-lo no módulo de administradores.
+          </p>
+        </div>
+      </div>
+
+      <div class="br-modal-footer justify-content-center">
+        <button type="button" class="br-button primary" (click)="closeUserInactiveAdminModal()">
+          <i class="fas fa-check mr-1" aria-hidden="true"></i>
+          Entendi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de campos obrigatórios -->
+  <div class="br-scrim foco" *ngIf="showRequiredFieldsModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="requiredFieldsModalScrim" (click)="closeRequiredFieldsModal()">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Campos obrigatórios</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeRequiredFieldsModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Os seguintes campos são obrigatórios e devem ser preenchidos:
+          </p>
+          <ul class="required-fields-list">
+            <li *ngFor="let error of requiredFieldsErrors">{{ error }}</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="br-modal-footer justify-content-center">
+        <button type="button" class="br-button primary" (click)="closeRequiredFieldsModal()">
+          <i class="fas fa-check mr-1" aria-hidden="true"></i>
+          Entendi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gov.br Loading Component -->
+  <br-loading 
+    *ngIf="isLoading" 
+    [message]="loadingMessage" 
+    size="medium">
+  </br-loading>
+</div>

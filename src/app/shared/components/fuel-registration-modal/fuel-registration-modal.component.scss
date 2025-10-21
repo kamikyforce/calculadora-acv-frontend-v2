@@ -1,0 +1,266 @@
+/* ===== Modal base ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  background: rgba(0,0,0,.5);
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  padding: 0;
+  z-index: 1050;
+  overflow: hidden;
+}
+
+.modal-content {
+  position: absolute;
+  right: 0; top: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  width: min(976px, 100vw);
+  max-width: 976px;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  border-radius: 0;
+  border: 0;
+  box-shadow: 6px 0 6px rgba(0,0,0,.16);
+  animation: slideInRight .25s ease-out;
+
+  &.modal-right { right: 0; top: 0; }
+}
+
+@keyframes slideInRight { from { transform: translateX(100%);} to { transform: translateX(0);} }
+
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  height: 56px;
+  padding: 0 0 0 16px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #CCCCCC;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25);
+
+  .modal-title {
+    margin: 0;
+    font-weight: 400;
+    font-size: 24.19px;
+    line-height: 33px;
+    color: #000;
+    font-feature-settings: 'pnum' on, 'lnum' on;
+  }
+
+  .modal-close {
+    width: 40px; height: 40px; border-radius: 16px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #1351B4; background: transparent; border: 0; cursor: pointer;
+  }
+}
+
+.modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+/* Footer Figma */
+.modal-footer{
+  height: 73px;
+  padding: 16px;
+  background: #FFFFFF;
+  border-top: 1px solid #CCCCCC;
+  display:flex; justify-content:flex-end; gap:16px;
+
+  .br-button{
+    height: 40px; padding: 8px 24px; border-radius: 20px;
+    font-weight: 600; font-size: 16.8px; line-height: 23px;
+    &.secondary{ background:#FFF; border:1px solid #1351B4; color:#1351B4; }
+    &.primary{ background:#1351B4; border:1px solid #1351B4; color:#FFF; &:disabled{ opacity:.6; cursor:not-allowed; } }
+  }
+}
+
+/* ===== Form sections ===== */
+.form-section { margin-bottom: 32px; &:last-child { margin-bottom: 0; } }
+.section-title{ margin:16px 0 4px; font: 400 20px/28px system-ui; color:#000; }
+.section-description{ margin:0 0 12px; font: 400 14px/19px system-ui; color:#000; }
+
+/* === GRID da 1ª linha (Nome | Unidade)
+   -> Coluna direita flexível para "comer" todo o espaço restante */
+.form-row{
+  display: grid;
+  grid-template-columns: 448px 1fr; /* <- AQUI: 2ª coluna vai até a borda direita */
+  gap: 16px;
+  margin-bottom: 8px;
+  align-items: start;
+}
+
+/* Fatores (304 × 3) */
+.emission-factors-grid{
+  display: grid;
+  grid-template-columns: repeat(3, 304px);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* Campos */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  min-height: 108px;
+
+  .br-label{
+    display:block; font-weight: 600; font-size:14px; line-height:19px;
+    color:#000; margin: 0 0 8px 0;
+  }
+
+  .form-helper{ font-size: 14px; line-height: 19px; color:#000; margin-top: 8px; }
+  .error-message{ font-size: .85rem; color:#e74c3c; margin-top: 6px; font-weight: 500; min-height: 23px; }
+  .validation-indicator{ min-height: 23px; }
+
+  /* IMPORTANTE: força o container do select a ocupar 100% */
+  .br-input, .br-select{
+    position: relative;
+    width: 100% !important;
+    max-width: none !important;
+
+    /* Inputs e Selects normalizados */
+    input, select{
+      width: 100% !important;        /* <- ocupa toda a coluna */
+      max-width: none !important;     /* <- remove limites do GOV.BR */
+      height: 40px;
+      padding: 4px 4px 4px 16px;
+      border: 1px solid #888888;
+      border-radius: 4px;
+      background: #FFFFFF;
+      font-size: 14px;
+      line-height: 19px;
+      margin: 0;
+      box-sizing: border-box;
+      transition: border-color .15s, box-shadow .15s;
+      -webkit-appearance: none;       /* remove estilos nativos */
+      appearance: none;
+
+      &::placeholder{ font-style: italic; color:#76766A; }
+      &:focus{ outline: none; border-color:#1351B4; box-shadow: 0 0 0 2px rgba(19,81,180,.12); }
+      &.error{ border-color:#e74c3c; box-shadow:none; }
+    }
+
+    /* setinha do select fica interna sem reduzir a largura */
+    select {
+      background-image:
+        linear-gradient(45deg, transparent 50%, #606776 50%),
+        linear-gradient(135deg, #606776 50%, transparent 50%);
+      background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 40px; /* reserva espaço para a seta */
+    }
+
+    .input-suffix{
+      position:absolute; right:12px; top:50%; transform:translateY(-50%);
+      color:#888; font-size:14px; pointer-events:none;
+    }
+  }
+}
+
+/* ===== Tabs ===== */
+.scope-tabs{
+  position: relative; background:#fff; margin: 0 0 8px 0;
+
+  &::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:#CCCCCC; }
+
+  .br-tab .tab-nav{
+    ul{
+      display:flex; gap:16px; margin:0; padding:0; width: 100%; list-style:none;
+      li.tab-item{
+        display:flex; flex-direction:column; align-items:center; gap:8px; height:60px;
+
+        .tab-btn{
+          width:132px; height:60px; padding:16px 24px;
+          background:transparent !important; border:0 !important;
+          font-weight:500; font-size:20.16px; line-height:28px; color:#333; position:relative;
+
+          &::after{
+            content:""; position:absolute; left:0; right:0; bottom:0; height:4px;
+            background:#0C326F; transform:scaleX(0); transform-origin:center; transition:transform .2s ease;
+          }
+        }
+
+        &.is-active .tab-btn{ color:#0C326F !important; }
+        &.is-active .tab-btn::after{ transform:scaleX(1); }
+      }
+    }
+
+    .tab-slider{ display:none !important; }
+  }
+}
+
+/* ===== Mensagem informativa ===== */
+.info-section{ margin-top: 8px; }
+.br-message.info{
+  width: 100%;
+  padding: 8px 16px;
+  background: #D4E5FF; border: 0; border-radius: 0;
+  display: flex; align-items: center; gap: 12px;
+
+  .icon{ display:inline-flex; align-items:center; justify-content:center; width: 20px; height: 20px; }
+  .icon i{ font-size: 20px; line-height: 20px; color:#155BCB; }
+
+  .content{
+    display: inline;
+    font-size: 16.8px; line-height: 23px; color:#000;
+
+    .message-title{ font-weight: 600; color:#000; display: inline; margin-right: 6px; }
+  }
+}
+
+/* ===== Modais auxiliares ===== */
+.br-scrim {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 1060; padding: 20px;
+
+  &.foco { backdrop-filter: blur(2px); }
+}
+.br-modal{
+  background:#fff; border-radius:8px;
+  box-shadow:0 10px 25px rgba(0,0,0,.2);
+  max-width:600px; width:100%; max-height:90vh; overflow-y:auto;
+  border:1px solid #e5e7eb;
+
+  &.small{ max-width:500px; }
+}
+.br-modal-header{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:16px 20px; border-bottom:1px solid #e5e7eb; background:#f8f9fa;
+
+  .modal-title{ font-size:18px; font-weight:600; color:#1f2937; margin:0; }
+  .br-button.circle{
+    width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:none; border:0; color:#6b7280; cursor:pointer; &:hover{ background:#e5e7eb; color:#374151; }
+    &.small{ width:28px; height:28px; font-size:14px; }
+  }
+}
+.br-modal-body{ padding:24px; }
+.br-modal-footer{
+  display:flex; justify-content:space-between; gap:16px;
+  padding:20px 24px; border-top:1px solid #e5e7eb; background:#f8f9fa;
+
+  .br-button{ flex:1; padding:12px 24px; border-radius:4px; font-weight:500; cursor:pointer; }
+  .br-button.secondary{ background:#f8f9fa; border:1px solid #d1d5db; color:#374151; &:hover{ background:#e5e7eb; } }
+  .br-button.danger{ background:#dc2626; border:1px solid #dc2626; color:#fff; &:hover{ background:#b91c1c; } }
+}
+
+/* ===== Responsivo ===== */
+@media (max-width: 1200px){
+  .modal-content{ width: 100vw; }
+  .scope-tabs .br-tab .tab-nav ul, .br-message.info{ width: 100%; }
+}
+@media (max-width: 992px){
+  .form-row, .emission-factors-grid{ grid-template-columns: 1fr; gap: 16px; }
+}
+@media (max-width: 768px){
+  .modal-content{ width: 100vw; }
+}

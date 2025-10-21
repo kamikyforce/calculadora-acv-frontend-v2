@@ -1,0 +1,26 @@
+<div class="br-scrim foco" *ngIf="isVisible">
+  <div class="br-modal medium" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+    <div class="br-modal-header">
+      <h2 id="importTitle" class="modal-title">Importar fatores MUT (Excel)</h2>
+      <button class="br-button circle small" type="button" aria-label="Fechar" (click)="onCancel()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="form-group">
+        <label class="br-label" for="excelFile">Arquivo (.xlsx, .xls)</label>
+        <div class="br-input">
+          <input id="excelFile" type="file" accept=".xlsx,.xls" (change)="onFileChange($event)" />
+        </div>
+      </div>
+      <p>Faça upload do arquivo conforme o layout acordado para o MUT.</p>
+    </div>
+    <div class="br-modal-footer">
+      <button class="br-button secondary" type="button" (click)="onCancel()" [disabled]="isLoading">Cancelar</button>
+      <button class="br-button primary" type="button" (click)="onImport()" [disabled]="isLoading || !selectedFile">
+        <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2"></span>
+        Importar
+      </button>
+    </div>
+  </div>
+</div>

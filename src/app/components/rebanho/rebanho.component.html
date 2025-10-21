@@ -1,0 +1,878 @@
+<div class="rebanho-container">
+  <!-- Header following Gov.br Design System -->
+  <header class="br-header compact">
+    <div class="container-lg">
+      <div class="header-top">
+        <div class="header-logo">
+          <img src="/assets/bndeslogo.png" alt="BNDES" class="logo" />
+        </div>
+
+        <div class="header-actions">
+          <div class="header-functions">
+            <button 
+              class="br-button secondary small" 
+              type="button" 
+              aria-label="Alto Contraste"
+              [class.active]="isHighContrast"
+              (click)="toggleHighContrast()">
+              <i class="fas fa-adjust" aria-hidden="true"></i>
+              <span class="button-text">Alto Contraste</span>
+            </button>
+            <button 
+              class="br-button secondary small" 
+              type="button" 
+              aria-label="VLibras"
+              [class.active]="isVLibrasActive"
+              (click)="toggleVLibras()">
+              <i class="fas fa-universal-access" aria-hidden="true"></i>
+              <span class="button-text">VLibras</span>
+            </button>
+            <button class="br-button secondary small" type="button" aria-label="Sair" (click)="logout()">
+              <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+              <span class="button-text">Sair</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container-lg">
+      <!-- Page Header com Menu Hambúrguer -->
+      <div class="page-header">
+        <div class="page-title-section">
+          <div class="title-with-menu">
+            <!-- Hamburger Menu posicionado ao lado do título -->
+            <app-hamburger-menu [menuItems]="menuItems" [isOpen]="isMenuOpen"
+              (menuToggle)="onMenuToggle($event)" (itemClick)="onMenuItemClick($event)">
+            </app-hamburger-menu>
+            <div class="title-content">
+              <h1 class="page-title">Rebanho</h1>
+              <p class="page-subtitle">Gerencie fatores relacionados a pecuária</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search and Actions Section -->
+      <div class="search-actions-section">
+        <div class="search-input">
+          <div class="br-input">
+            <input type="text" placeholder="O que você procura?" class="form-control" [(ngModel)]="searchTerm"
+              (ngModelChange)="onSearch()">
+            <button class="search-button" type="button">
+              <i class="fas fa-search" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="search-actions">
+          <button class="br-button primary" type="button" (click)="openCreateModal()">
+            <i class="fas fa-plus" aria-hidden="true"></i>
+            Cadastrar insumo
+          </button>
+        </div>
+      </div>
+
+      <!-- Table Section -->
+      <div class="table-section">
+        <!-- Loading Overlay -->
+        <div *ngIf="isLoading" class="loading-overlay">
+          <br-loading [message]="loadingMessage" size="medium"></br-loading>
+        </div>
+        
+        <div class="table-responsive horizontal-scroll" *ngIf="!isLoading">
+          <table class="br-table rebanho-table">
+            <thead>
+              <tr>
+                <th class="table-header">Módulo</th>
+                <th class="table-header">Tipo</th>
+                <th class="table-header">Escopo</th>
+                <th class="table-header">Identificação do Produto</th>
+                <th class="table-header">Fonte do Dataset do Produto</th>
+                <th class="table-header">Dataset do Produto</th>
+                <th class="table-header">UUID do Dataset do Produto</th>
+                <th class="table-header">Quantidade do Produto</th>
+                <th class="table-header">Unidade do Produto</th>
+                <th class="table-header">Método de Avaliação de Impacto GWP</th>
+                <th class="table-header">GEE Total GWP 100</th>
+                <th class="table-header">CO₂ - Fóssil</th>
+                <th class="table-header">Uso da Terra (MUT)</th>
+                <th class="table-header">CH₄ - Fóssil</th>
+                <th class="table-header">CH₄ Biogênico (Não MUT)</th>
+                <th class="table-header">N₂O</th>
+                <th class="table-header">Outras Substâncias</th>
+                <th class="table-header">Comentários Escopo 1</th>
+                <th class="table-header">Comentários Escopo 3</th>
+                <th class="table-header">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let insumo of paginatedData">
+                <td>{{ insumo.modulo }}</td>
+                <td>{{ getTipoLabel(insumo.tipo) }}</td>
+                <td>{{ getEscopoLabel(insumo.escopo) }}</td>
+                <td>{{ insumo.identificacaoProduto }}</td>
+                <td>{{ insumo.fonteDataset }}</td>
+                <td>{{ insumo.nomeProduto }}</td>
+                <td>{{ insumo.uuid }}</td>
+                <td>{{ insumo.quantidade | number:'1.6-6' }}</td>
+                <td>{{ insumo.unidadeProduto }}</td>
+                <td>{{ insumo.metodoAvaliacaoGwp }}</td>
+                <td>{{ insumo.gwp100Fossil | number:'1.6-6' }}</td>
+                <td>{{ insumo.co2Fossil | number:'1.6-6' }}</td>
+                <td>{{ insumo.gwp100Biogenico | number:'1.6-6' }}</td>
+                <td>{{ insumo.ch4Fossil | number:'1.6-6' }}</td>
+                <td>{{ insumo.ch4Biogenico | number:'1.6-6' }}</td>
+                <td>{{ insumo.n2o | number:'1.6-6' }}</td>
+                <td>{{ insumo.outrasSubstancias | number:'1.6-6' }}</td>
+                <td>{{ insumo.comentariosEscopo1 }}</td>
+                <td>{{ insumo.comentariosEscopo3 }}</td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="br-button secondary small" type="button"
+                      (click)="editarInsumo(insumo.id)" aria-label="Editar">
+                      <i class="fas fa-edit" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      
+        <!-- Pagination -->
+        <div class="pagination-section" *ngIf="!isLoading">
+          <div class="pagination-info">
+            <span>Exibir</span>
+            <select [(ngModel)]="itemsPerPage" class="items-per-page" (change)="changeItemsPerPage(itemsPerPage)">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+            <span>{{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage, totalItems) }} de
+              {{ totalItems }} itens</span>
+          </div>
+          <div class="pagination-controls">
+            <span>Página</span>
+            <select [(ngModel)]="currentPage" class="page-select" (change)="changePage(currentPage)">
+              <option *ngFor="let page of [].constructor(totalPages); let i = index" [value]="i + 1">
+                {{ i + 1 }}
+              </option>
+            </select>
+            <div class="pagination-buttons">
+              <button class="br-button secondary small" type="button" (click)="changePage(currentPage - 1)"
+                [disabled]="currentPage === 1">
+                <i class="fas fa-angle-left" aria-hidden="true"></i>
+              </button>
+              <button class="br-button secondary small" type="button" (click)="changePage(currentPage + 1)"
+                [disabled]="currentPage === totalPages">
+                <i class="fas fa-angle-right" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Create/Edit Insumo Modal -->
+  <div class="modal-overlay" *ngIf="showCreateModal || showEditModal">
+    <div class="modal-content modal-right modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">{{ isEditMode ? 'Editar insumo' : 'Cadastrar insumo' }}</h2>
+        <button class="modal-close" type="button" (click)="confirmCloseModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Tabs -->
+        <div class="tabs-container">
+          <div class="tabs-header">
+            <button 
+              class="tab-button" 
+              [class.active]="activeTab === 'escopo1'"
+              (click)="setActiveTab('escopo1')">
+              Escopo 1
+            </button>
+            <button 
+              class="tab-button" 
+              [class.active]="activeTab === 'escopo3'"
+              (click)="setActiveTab('escopo3')">
+              Escopo 3
+            </button>
+          </div>
+
+          <!-- Escopo 1 Tab -->
+          <div class="tab-content" *ngIf="activeTab === 'escopo1'">
+            <form class="insumo-form" (ngSubmit)="$event.preventDefault()">
+              <!-- Identificação e classificação -->
+              <div class="form-section">
+                <h3 class="section-title">Identificação e classificação</h3>
+                <p class="section-subtitle">Defina o módulo, tipo e escopo do insumo</p>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="tipo-escopo1" class="br-label bold-label">Tipo</label>
+                    <div class="br-select">
+                      <select id="tipo-escopo1" [(ngModel)]="novoInsumo.escopo1.tipo" name="tipo-escopo1" class="form-control">
+                        <option value="">Selecione o tipo</option>
+                        <option value="INGREDIENTES_ALIMENTARES">Ingredientes alimentares</option>
+                        <option value="ANIMAIS_COMPRADOS">Animais comprados</option>
+                        <option value="FERTILIZANTES">Fertilizantes</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Informações do produto e Dataset -->
+              <div class="form-section">
+                <h3 class="section-title">Informações do produto e Dataset</h3>
+                <p class="section-subtitle">Dados relacionados ao produto e fonte dos dados</p>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="identificacao-produto-escopo1" class="br-label bold-label">Identificação do produto</label>
+                    <div class="br-input">
+                      <input type="text" id="identificacao-produto-escopo1" [(ngModel)]="novoInsumo.escopo1.identificacaoProduto" 
+                        name="identificacao-produto-escopo1" placeholder="Milho, Grãos inteiros" class="form-control"
+                        [disabled]="isEditMode" maxlength="255" (input)="onIdentificacaoChange($event)">
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="fonte-dataset-escopo1" class="br-label bold-label">Fonte do dataset de produto</label>
+                    <div class="br-input">
+                      <input type="text" id="fonte-dataset-escopo1" [(ngModel)]="novoInsumo.escopo1.fonteDataset" 
+                        name="fonte-dataset-escopo1" placeholder="Ecoinvent v3.8" class="form-control" maxlength="255">
+                    </div>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="uuid-dataset-escopo1" class="br-label bold-label">UUID do dataset de produto</label>
+                    <div class="br-input">
+                      <input type="text" id="uuid-dataset-escopo1" [(ngModel)]="novoInsumo.escopo1.uuidDataset" 
+                        name="uuid-dataset-escopo1" placeholder="00000000-0000-0000-0000-000000000000" class="form-control" maxlength="255">
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group full-width">
+                    <label for="dataset-produto-escopo1" class="br-label bold-label">Dataset do produto</label>
+                    <div class="br-textarea">
+                      <textarea id="dataset-produto-escopo1" [(ngModel)]="novoInsumo.escopo1.datasetProduto" 
+                        name="dataset-produto-escopo1" placeholder="Descrição completa do dataset" 
+                        class="form-control" rows="3" maxlength="500"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quantidade e unidade -->
+              <div class="form-section">
+                <h3 class="section-title">Quantidade e unidade</h3>
+                <p class="section-subtitle">Defina a quantidade e a unidade de medida</p>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="quantidade-produto-escopo1" class="br-label bold-label">Quantidade do produto</label>
+                    <div class="br-input">
+                      <input type="number" id="quantidade-produto-escopo1" [(ngModel)]="novoInsumo.escopo1.quantidadeProduto" 
+                        name="quantidade-produto-escopo1" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1</span>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="unidade-escopo1" class="br-label bold-label">Unidade</label>
+                    <div class="br-select">
+                      <select id="unidade-escopo1" [(ngModel)]="novoInsumo.escopo1.unidade" name="unidade-escopo1" class="form-control">
+                        <option value="">Selecione a unidade</option>
+                        <option *ngFor="let unidade of unidadesEscopo1" [value]="unidade.value">{{ unidade.label }}</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Método de avaliação de impacto -->
+              <div class="form-section">
+                <h3 class="section-title">Método de avaliação de impacto</h3>
+                <p class="section-subtitle">Especifique o método utilizado para avaliação</p>
+                
+                <div class="form-row">
+                  <div class="form-group full-width">
+                    <label for="metodo-avaliacao-escopo1" class="br-label bold-label">Método de avaliação de impacto (GWP)</label>
+                    <div class="br-textarea">
+                      <textarea id="metodo-avaliacao-escopo1" [(ngModel)]="novoInsumo.escopo1.metodoAvaliacaoGwp" 
+                        name="metodo-avaliacao-escopo1" placeholder="IPCC 2021 GWP 100 detalhado" 
+                        class="form-control" rows="2" maxlength="500"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Valores de emissões (GEE) -->
+              <div class="form-section">
+                <h3 class="section-title">Valores de emissões (GEE)</h3>
+                <p class="section-subtitle">Preencha os valores das diferentes categorias de emissões</p>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="gwp100-total-escopo1" class="br-label bold-label">GWP 100 - Total</label>
+                    <div class="br-input">
+                      <input type="number" id="gwp100-total-escopo1" [(ngModel)]="novoInsumo.escopo1.geeTotal" 
+                        name="gwp100-total-escopo1" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 7.66E-01</span>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="co2-fossil-escopo1" class="br-label bold-label">CO₂ - Fóssil</label>
+                    <div class="br-input">
+                      <input type="number" id="co2-fossil-escopo1" [(ngModel)]="novoInsumo.escopo1.co2Fossil" 
+                        name="co2-fossil-escopo1" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1.33E-01</span>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="uso-terra-escopo1" class="br-label bold-label">Uso da terra (MUT)</label>
+                    <div class="br-input">
+                      <input type="number" id="uso-terra-escopo1" [(ngModel)]="novoInsumo.escopo1.usoTerra"
+                  name="uso-terra-escopo1" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 4.80E-01</span>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="ch4-fossil-escopo1" class="br-label bold-label">CH₄ - Fóssil</label>
+                    <div class="br-input">
+                      <input type="number" id="ch4-fossil-escopo1" [(ngModel)]="novoInsumo.escopo1.ch4Fossil"
+                  name="ch4-fossil-escopo1" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1.05E-01</span>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="ch4-biogenico-escopo1" class="br-label bold-label">CH₄ biogênico (não MUT)</label>
+                    <div class="br-input">
+                      <input type="number" id="ch4-biogenico-escopo1" [(ngModel)]="novoInsumo.escopo1.ch4Biogenico"
+                  name="ch4-biogenico-escopo1" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1.35E-01</span>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="n2o-escopo1" class="br-label bold-label">N₂O</label>
+                    <div class="br-input">
+                      <input type="number" id="n2o-escopo1" [(ngModel)]="novoInsumo.escopo1.n2o"
+                  name="n2o-escopo1" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1.35E-01</span>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="outras-substancias-escopo1" class="br-label bold-label">Outras substâncias</label>
+                    <div class="br-input">
+                      <input type="number" id="outras-substancias-escopo1" [(ngModel)]="novoInsumo.escopo1.outrasSubstancias"
+                  name="outras-substancias-escopo1" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1.35E-01</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Observações -->
+              <div class="form-section">
+                <h3 class="section-title">Observações</h3>
+                <p class="section-subtitle">Adicione comentários ou observações relevantes</p>
+                
+                <div class="form-row">
+                  <div class="form-group full-width">
+                    <label for="comentarios-escopo1" class="br-label bold-label">Comentários</label>
+                    <div class="br-textarea">
+                      <textarea id="comentarios-escopo1" [(ngModel)]="novoInsumo.escopo1.comentarios" 
+                        name="comentarios-escopo1" placeholder="Dataset específico com dado atualizado de MUT de BRLUC 2020" 
+                        class="form-control" rows="3" maxlength="500"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- Escopo 3 Tab -->
+          <div class="tab-content" *ngIf="activeTab === 'escopo3'">
+            <form class="insumo-form" (ngSubmit)="$event.preventDefault()">
+              <!-- Identificação e classificação -->
+              <div class="form-section">
+                <h3 class="section-title">Identificação e classificação</h3>
+                <p class="section-subtitle">Defina as informações básicas do insumo</p>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="grupo-ingrediente-escopo3" class="br-label bold-label">Grupo do ingrediente alimentar</label>
+                    <div class="br-select">
+                      <select id="grupo-ingrediente-escopo3" [(ngModel)]="novoInsumo.escopo3.grupoIngrediente" name="grupo-ingrediente-escopo3" class="form-control">
+                        <option value="">Selecione o grupo</option>
+                        <option *ngFor="let grupo of gruposIngredientes" [value]="grupo.value">{{ grupo.label }}</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="nome-produto-escopo3" class="br-label bold-label">Nome do produto</label>
+                    <div class="br-input">
+                      <input type="text" id="nome-produto-escopo3" [(ngModel)]="novoInsumo.escopo3.nomeProduto" 
+                        name="nome-produto-escopo3" placeholder="Informe o nome do produto" class="form-control"
+                        [disabled]="isEditMode" maxlength="255" (input)="onNomeProdutoChange($event)">
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="tipo-escopo3" class="br-label bold-label">Tipo</label>
+                    <div class="br-select">
+                      <select id="tipo-escopo3" [(ngModel)]="novoInsumo.escopo3.tipo" name="tipo-escopo3" class="form-control">
+                        <option value="">Selecione o tipo</option>
+                        <option value="INGREDIENTES_ALIMENTARES">Ingredientes alimentares</option>
+                        <option value="ANIMAIS_COMPRADOS">Animais comprados</option>
+                        <option value="FERTILIZANTES">Fertilizantes</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quantidade e unidade de referência -->
+              <div class="form-section">
+                <h3 class="section-title">Quantidade e unidade de referência</h3>
+                <p class="section-subtitle">Defina a base para cálculos</p>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="quantidade-produto-ref-escopo3" class="br-label bold-label">Quantidade do produto de referência</label>
+                    <div class="br-input">
+                      <input type="number" id="quantidade-produto-ref-escopo3" [(ngModel)]="novoInsumo.escopo3.quantidadeProdutoReferencia" 
+                        name="quantidade-produto-ref-escopo3" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1</span>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="unidade-produto-ref-escopo3" class="br-label bold-label">Unidade do produto de referência</label>
+                    <div class="br-select">
+                      <select id="unidade-produto-ref-escopo3" [(ngModel)]="novoInsumo.escopo3.unidadeProdutoReferencia" name="unidade-produto-ref-escopo3" class="form-control">
+                        <option value="">Selecione a unidade do produto de referência</option>
+                        <option *ngFor="let unidade of unidadesEscopo1" [value]="unidade.value">{{ unidade.label }}</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+
+
+              <!-- Valores de emissões (GEE) -->
+              <div class="form-section">
+                <h3 class="section-title">Valores de emissões (GEE)</h3>
+                <p class="section-subtitle">Preencha os valores das diferentes categorias de emissões</p>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="gwp100-total-escopo3" class="br-label bold-label">GWP 100 - Total</label>
+                    <div class="br-input">
+                      <input type="number" id="gwp100-total-escopo3" [(ngModel)]="novoInsumo.escopo3.geeTotal" 
+                        name="gwp100-total-escopo3" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 7.66E-01</span>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="gwp100-fossil-escopo3" class="br-label bold-label">GWP 100 - Fóssil</label>
+                    <div class="br-input">
+                      <input type="number" id="gwp100-fossil-escopo3" [(ngModel)]="novoInsumo.escopo3.gwpFossil" 
+                        name="gwp100-fossil-escopo3" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1.35E-01</span>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="gwp100-biogenico-escopo3" class="br-label bold-label">GWP 100 - Biogênico</label>
+                    <div class="br-input">
+                      <input type="number" id="gwp100-biogenico-escopo3" [(ngModel)]="novoInsumo.escopo3.gwpBiogenico" 
+                        name="gwp100-biogenico-escopo3" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 4.86E-01</span>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="gwp100-transformacao-escopo3" class="br-label bold-label">GWP 100 - Transformação do uso do solo</label>
+                    <div class="br-input">
+                      <input type="number" id="gwp100-transformacao-escopo3" [(ngModel)]="novoInsumo.escopo3.gwpTransformacao" 
+                        name="gwp100-transformacao-escopo3" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1.08E-02</span>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="dioxido-carbono-fossil-escopo3" class="br-label bold-label">Dióxido de carbono - Fóssil</label>
+                    <div class="br-input">
+                      <input type="number" id="dioxido-carbono-fossil-escopo3" [(ngModel)]="novoInsumo.escopo3.dioxidoCarbonoFossil" 
+                        name="dioxido-carbono-fossil-escopo3" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 4.77E-05</span>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="dioxido-carbono-metano-escopo3" class="br-label bold-label">Dióxido de carbono e metano - Transformação do uso do solo</label>
+                    <div class="br-input">
+                      <input type="number" id="dioxido-carbono-metano-escopo3" [(ngModel)]="novoInsumo.escopo3.dioxidoCarbonoMetano" 
+                        name="dioxido-carbono-metano-escopo3" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1.35E-01</span>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="metano-fossil-escopo3" class="br-label bold-label">Metano - Fóssil</label>
+                    <div class="br-input">
+                      <input type="number" id="metano-fossil-escopo3" [(ngModel)]="novoInsumo.escopo3.metanoFossil" 
+                        name="metano-fossil-escopo3" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1.35E-01</span>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="metano-biogenico-escopo3" class="br-label bold-label">Metano - Biogênico</label>
+                    <div class="br-input">
+                      <input type="number" id="metano-biogenico-escopo3" [(ngModel)]="novoInsumo.escopo3.metanoBiogenico" 
+                        name="metano-biogenico-escopo3" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1.35E-01</span>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="oxido-nitroso-escopo3" class="br-label bold-label">Óxido nitroso</label>
+                    <div class="br-input">
+                      <input type="number" id="oxido-nitroso-escopo3" [(ngModel)]="novoInsumo.escopo3.oxidoNitroso" 
+                        name="oxido-nitroso-escopo3" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1.35E-01</span>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="outras-substancias-escopo3" class="br-label bold-label">Outras substâncias</label>
+                    <div class="br-input">
+                      <input type="number" id="outras-substancias-escopo3" [(ngModel)]="novoInsumo.escopo3.outrasSubstancias" 
+                        name="outras-substancias-escopo3" class="form-control" step="0.000001">
+                    </div>
+                    <span class="field-legend">Ex: 1.35E-01</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Uso na dieta -->
+              <div class="form-section">
+                <h3 class="section-title">Uso na dieta</h3>
+                <p class="section-subtitle">Informe se o insumo faz parte da dieta e forneça detalhes</p>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="faz-parte-dieta-escopo3" class="br-label bold-label">Faz parte da dieta?</label>
+                    <div class="br-select">
+                      <select id="faz-parte-dieta-escopo3" [(ngModel)]="novoInsumo.escopo3.fazParteDieta" 
+                        name="faz-parte-dieta-escopo3" class="form-control" (change)="onDietaChange()">
+                        <option value="">Selecione uma opção</option>
+                        <option value="SIM">Sim</option>
+                        <option value="NAO">Não</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Campos condicionais para quando faz parte da dieta -->
+                <div *ngIf="novoInsumo.escopo3.fazParteDieta === FazParteDieta.SIM">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="ingrediente-escopo3" class="br-label bold-label">Ingrediente</label>
+                      <div class="br-input">
+                      <input type="text" id="ingrediente-escopo3" [(ngModel)]="novoInsumo.escopo3.ingrediente" 
+                        name="ingrediente-escopo3" placeholder="Informe o ingrediente" class="form-control" maxlength="255">
+                    </div>
+                    </div>
+                    
+                    <div class="form-group">
+                      <label for="not-eu-escopo3" class="br-label bold-label">NDT (%)</label>
+                      <div class="br-input">
+                      <input type="text" id="not-eu-escopo3" [(ngModel)]="novoInsumo.escopo3.notEu" 
+                        name="not-eu-escopo3" placeholder="Informe os nutrientes digestíveis totais" class="form-control" maxlength="255">
+                    </div>
+                    </div>
+                  </div>
+                  
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="energia-bruta-escopo3" class="br-label bold-label">Energia Bruta (MJ kg⁻¹ MS)</label>
+                      <div class="br-input">
+                        <input type="number" id="energia-bruta-escopo3" [(ngModel)]="novoInsumo.escopo3.energiaBruta" 
+                          name="energia-bruta-escopo3" class="form-control" step="0.000001">
+                      </div>
+                      <span class="field-legend">Informe a energia bruta</span>
+                    </div>
+                    
+                    <div class="form-group">
+                      <label for="ms-kg-escopo3" class="br-label bold-label">MS (g kg⁻¹)</label>
+                      <div class="br-input">
+                        <input type="number" id="ms-kg-escopo3" [(ngModel)]="novoInsumo.escopo3.msKg" 
+                          name="ms-kg-escopo3" class="form-control" step="0.000001">
+                      </div>
+                      <span class="field-legend">Ex: 880.000000</span>
+                    </div>
+                  </div>
+                  
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="proteina-bruta-escopo3" class="br-label bold-label">Proteína Bruta (g kg⁻¹ MS)</label>
+                      <div class="br-input">
+                        <input type="number" id="proteina-bruta-escopo3" [(ngModel)]="novoInsumo.escopo3.proteinaBruta" 
+                          name="proteina-bruta-escopo3" class="form-control" step="0.000001">
+                      </div>
+                      <span class="field-legend">Ex: 95.000000</span>
+                    </div>
+                    
+                    <div class="form-group">
+                      <label for="fatores-emissao-escopo3" class="br-label bold-label">Fatores de emissão calculados</label>
+                      <div class="br-select">
+                        <select id="fatores-emissao-escopo3" [(ngModel)]="novoInsumo.escopo3.fatoresEmissao" 
+                          name="fatores-emissao-escopo3" class="form-control">
+                          <option value="">Selecione os fatores</option>
+                          <option value="CALCULADO">Calculado</option>
+                        <option value="ESTIMADO">Estimado</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Observações -->
+              <div class="form-section">
+                <h3 class="section-title">Observações</h3>
+                <p class="section-subtitle">Adicione comentários ou observações relevantes</p>
+                
+                <div class="form-row">
+                  <div class="form-group full-width">
+                    <label for="comentarios-escopo3" class="br-label bold-label">Comentários</label>
+                    <div class="br-textarea">
+                      <textarea id="comentarios-escopo3" [(ngModel)]="novoInsumo.escopo3.comentarios" 
+                        name="comentarios-escopo3" placeholder="Dataset específico com dado atualizado de MUT de BRLUC 2020" 
+                        class="form-control" rows="3" maxlength="500"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer d-flex justify-content-end">
+        <button class="br-button secondary me-2" type="button" (click)="isEditMode ? confirmCloseEditModal() : confirmCloseCreateModal()">
+           Cancelar
+         </button>
+         <button class="br-button primary" type="button" (click)="isEditMode ? confirmSubmitEdit() : confirmSubmitCreate()" [disabled]="isVerificandoNome">
+           <span *ngIf="isVerificandoNome" class="spinner-border spinner-border-sm me-2"></span>
+           <span *ngIf="isVerificandoNome">Verificando...</span>
+           <span *ngIf="!isVerificandoNome">Confirmar</span>
+         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modals -->
+  <!-- Cancel Confirmation Modal -->
+  <div class="br-scrim foco" *ngIf="showCancelConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="cancelConfirmModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Confirmar cancelamento</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeCancelConfirmModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Tem certeza de que deseja cancelar? Todas as alterações não salvas serão perdidas.
+          </p>
+        </div>
+      </div>
+      <div class="br-modal-footer d-flex justify-content-end gap-2">
+        <button class="br-button secondary" type="button" data-dismiss="true" (click)="closeCancelConfirmModal()">
+          Continuar Editando
+        </button>
+        <button class="br-button danger" type="button" (click)="confirmCancel()">
+          <i class="fas fa-times mr-1" aria-hidden="true"></i>
+          Sim, Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Confirmation Modal -->
+  <div class="br-scrim foco" *ngIf="showSaveConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="saveConfirmModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Confirmar {{ isEditMode ? 'alterações' : 'cadastro' }}</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeSaveConfirmModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-check-circle text-success" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Tem certeza de que deseja {{ isEditMode ? 'salvar as alterações' : 'cadastrar este insumo' }}?
+          </p>
+        </div>
+      </div>
+      <div class="br-modal-footer d-flex align-items-center justify-content-end">
+        <button class="br-button secondary me-2" type="button" data-dismiss="true" (click)="closeSaveConfirmModal()">
+          Cancelar
+        </button>
+        <button class="br-button primary" type="button" (click)="confirmSave()">
+          <i class="fas fa-check mr-1" aria-hidden="true"></i>
+          {{ isEditMode ? 'Confirmar' : 'Confirmar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Required Fields Modal -->
+  <div class="br-scrim foco" *ngIf="showRequiredFieldsModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="requiredFieldsModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Campos obrigatórios</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeRequiredFieldsModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Os seguintes campos são obrigatórios e devem ser preenchidos:
+          </p>
+          <ul class="required-fields-list">
+            <li *ngFor="let error of requiredFieldsErrors">{{ error }}</li>
+          </ul>
+        </div>
+      </div>
+      <div class="br-modal-footer d-flex align-items-center justify-content-center">
+        <button type="button" class="br-button primary" (click)="closeRequiredFieldsModal()">
+          <i class="fas fa-check mr-1" aria-hidden="true"></i>
+          Entendi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="br-scrim foco" *ngIf="showFieldLengthModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="fieldLengthModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Limite de caracteres excedido</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeFieldLengthModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Os seguintes campos excederam o limite de caracteres permitido:
+          </p>
+          <ul class="required-fields-list">
+            <li *ngFor="let error of fieldLengthErrors">{{ error }}</li>
+          </ul>
+        </div>
+      </div>
+      <div class="br-modal-footer d-flex align-items-center justify-content-center">
+        <button type="button" class="br-button primary" (click)="closeFieldLengthModal()">
+          <i class="fas fa-check mr-1" aria-hidden="true"></i>
+          Entendi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="br-scrim foco" *ngIf="showDuplicateNameModal" data-scrim="true" aria-modal="true" role="dialog"
+    data-visible="true" id="duplicateNameModalScrim">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Nome já existe</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+          (click)="closeDuplicateNameModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Já existe um insumo com {{ duplicateNameInfo?.tipo?.toLowerCase() }} "<strong>{{ duplicateNameInfo?.nome }}</strong>".
+          </p>
+          <p class="delete-message">
+            Por favor, escolha um nome diferente para continuar.
+          </p>
+        </div>
+      </div>
+      <div class="br-modal-footer d-flex align-items-center justify-content-center">
+        <button type="button" class="br-button primary" (click)="closeDuplicateNameModal()">
+          <i class="fas fa-check mr-1" aria-hidden="true"></i>
+          Entendi
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

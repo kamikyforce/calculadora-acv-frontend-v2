@@ -1,0 +1,238 @@
+✅ onConfirm() iniciado - enableScopes: true fuel-registration-modal.component.ts:408:13
+🔄 Sincronização nome/unidade aplicada para ambos escopos fuel-registration-modal.component.ts:403:15
+🔍 Buscando por nome e escopo: arabic - ESCOPO1 combustivel.service.ts:291:13
+XHRGET
+http://localhost:8080/calculadoraacv/backend/combustiveis/buscar?nome=arabic&escopo=ESCOPO1
+[HTTP/1.1 200  75ms]
+
+✅ Busca resultado para "arabic" - ESCOPO1: não encontrado combustivel.service.ts:301:17
+✅ Executando salvamento: 
+Object { escopo1: {…}, escopo3Producao: {…} }
+fuel-registration-modal.component.ts:823:13
+Processing Escopo 1: arabic combustivel-table.component.ts:331:13
+🔍 Buscando por nome e escopo: arabic - ESCOPO1 combustivel.service.ts:291:13
+💾 Salvando escopo1 - Nome: arabic | Unidade: kg | Fatores: 
+Object { co2: 12, ch4: 3, n2o: 4 }
+fuel-registration-modal.component.ts:390:13
+🔄 Sincronização nome/unidade aplicada para ambos escopos fuel-registration-modal.component.ts:403:15
+XHRGET
+http://localhost:8080/calculadoraacv/backend/combustiveis/buscar?nome=arabic&escopo=ESCOPO1
+[HTTP/1.1 200  16ms]
+
+✅ Busca resultado para "arabic" - ESCOPO1: não encontrado combustivel.service.ts:301:17
+➕ CombustivelService: Criando novo combustível: arabic - ESCOPO1 combustivel.service.ts:112:13
+📋 Dados para criação: {
+  "nome": "arabic",
+  "tipo": "FOSSIL",
+  "unidade": "kg",
+  "fatorEmissaoCO2": 12,
+  "fatorEmissaoCH4": 3,
+  "fatorEmissaoN2O": 4,
+  "escopo": "ESCOPO1"
+} combustivel.service.ts:113:13
+🔍 Validando combustível: {
+  "nome": "arabic",
+  "tipo": "FOSSIL",
+  "unidade": "kg",
+  "fatorEmissaoCO2": 12,
+  "fatorEmissaoCH4": 3,
+  "fatorEmissaoN2O": 4,
+  "escopo": "ESCOPO1"
+} combustivel.service.ts:339:13
+✅ Combustível validado com sucesso combustivel.service.ts:393:13
+📋 Dados validados para envio: {
+  "nome": "arabic",
+  "tipo": "FOSSIL",
+  "unidade": "kg",
+  "fatorEmissaoCO2": 12,
+  "fatorEmissaoCH4": 3,
+  "fatorEmissaoN2O": 4,
+  "escopo": "ESCOPO1"
+} combustivel.service.ts:133:13
+XHRPOST
+http://localhost:8080/calculadoraacv/backend/combustiveis
+[HTTP/1.1 201  55ms]
+
+✅ Combustível criado com sucesso: 11 - arabic - ESCOPO1 combustivel.service.ts:142:17
+✅ Escopo 1 processed successfully: 11 combustivel-table.component.ts:337:17
+Processing Escopo 3: arabic combustivel-table.component.ts:331:13
+🔍 Buscando por nome e escopo: arabic - ESCOPO3 combustivel.service.ts:291:13
+XHRGET
+http://localhost:8080/calculadoraacv/backend/combustiveis/buscar?nome=arabic&escopo=ESCOPO3
+[HTTP/1.1 200  7ms]
+
+XHROPTIONS
+http://localhost:8080/calculadoraacv/backend/combustiveis/buscar?nome=arabic&escopo=ESCOPO3
+[HTTP/1.1 200  2ms]
+
+✅ Busca resultado para "arabic" - ESCOPO3: não encontrado combustivel.service.ts:301:17
+➕ CombustivelService: Criando novo combustível: arabic - ESCOPO3 combustivel.service.ts:112:13
+📋 Dados para criação: {
+  "nome": "arabic",
+  "tipo": "FOSSIL",
+  "unidade": "kg",
+  "fatorEmissaoCO2": 0,
+  "fatorEmissaoCH4": 0,
+  "fatorEmissaoN2O": 0,
+  "escopo": "ESCOPO3"
+} combustivel.service.ts:113:13
+🔍 Validando combustível: {
+  "nome": "arabic",
+  "tipo": "FOSSIL",
+  "unidade": "kg",
+  "fatorEmissaoCO2": 0,
+  "fatorEmissaoCH4": 0,
+  "fatorEmissaoN2O": 0,
+  "escopo": "ESCOPO3"
+} combustivel.service.ts:339:13
+✅ Combustível validado com sucesso combustivel.service.ts:393:13
+📋 Dados validados para envio: {
+  "nome": "arabic",
+  "tipo": "FOSSIL",
+  "unidade": "kg",
+  "fatorEmissaoCO2": 0,
+  "fatorEmissaoCH4": 0,
+  "fatorEmissaoN2O": 0,
+  "escopo": "ESCOPO3"
+} combustivel.service.ts:133:13
+XHRPOST
+http://localhost:8080/calculadoraacv/backend/combustiveis
+[HTTP/1.1 201  25ms]
+
+✅ Combustível criado com sucesso: 12 - arabic - ESCOPO3 combustivel.service.ts:142:17
+✅ Escopo 3 processed successfully: 12 combustivel-table.component.ts:337:17
+🔥 CombustivelService: Listando todos os combustíveis combustivel.service.ts:76:13
+XHRGET
+http://localhost:8080/calculadoraacv/backend/combustiveis
+[HTTP/1.1 200  7ms]
+
+✅ Combustíveis listados com sucesso: 12 itens combustivel.service.ts:82:17
+XHRGET
+http://localhost:8080/calculadoraacv/backend/combustiveis/buscar?nome=arabic
+[HTTP/1.1 200  21ms]
+
+XHROPTIONS
+http://localhost:8080/calculadoraacv/backend/combustiveis/buscar?nome=arabic
+[HTTP/1.1 200  5ms]
+
+💾 Salvando escopo1 - Nome: arabic | Unidade: kg | Fatores: 
+Object { co2: 12, ch4: 3, n2o: 4 }
+fuel-registration-modal.component.ts:390:13
+🔄 Sincronização nome/unidade aplicada para ambos escopos fuel-registration-modal.component.ts:403:15
+✅ onConfirm() iniciado - enableScopes: true fuel-registration-modal.component.ts:408:13
+💾 Salvando escopo3-producao - Nome: arabic | Unidade: m³ | Fatores: 
+Object { co2: 0, ch4: 0, n2o: 0 }
+fuel-registration-modal.component.ts:390:13
+🔄 Sincronização nome/unidade aplicada para ambos escopos fuel-registration-modal.component.ts:403:15
+🔍 Buscando por nome e escopo: arabic - ESCOPO3 combustivel.service.ts:291:13
+XHRGET
+http://localhost:8080/calculadoraacv/backend/combustiveis/buscar?nome=arabic&escopo=ESCOPO3
+[HTTP/1.1 200  15ms]
+
+✅ Busca resultado para "arabic" - ESCOPO3: ID 12 combustivel.service.ts:301:17
+✅ Executando salvamento: 
+Object { escopo1: {…}, escopo3Producao: {…}, editId: 12, editEscopo: "ESCOPO3" }
+fuel-registration-modal.component.ts:823:13
+Processing Escopo 1: arabic combustivel-table.component.ts:331:13
+🔍 Buscando por nome e escopo: arabic - ESCOPO1 combustivel.service.ts:291:13
+💾 Salvando escopo3-producao - Nome: arabic | Unidade: m³ | Fatores: 
+Object { co2: 0, ch4: 0, n2o: 0 }
+fuel-registration-modal.component.ts:390:13
+🔄 Sincronização nome/unidade aplicada para ambos escopos fuel-registration-modal.component.ts:403:15
+XHRGET
+http://localhost:8080/calculadoraacv/backend/combustiveis/buscar?nome=arabic&escopo=ESCOPO1
+[HTTP/1.1 200  10ms]
+
+✅ Busca resultado para "arabic" - ESCOPO1: ID 11 combustivel.service.ts:301:17
+📝 CombustivelService: Atualizando combustível ID: 11 - arabic - ESCOPO1 combustivel.service.ts:154:13
+📋 Dados para atualização: {
+  "nome": "arabic",
+  "tipo": "FOSSIL",
+  "unidade": "m³",
+  "fatorEmissaoCO2": 12,
+  "fatorEmissaoCH4": 3,
+  "fatorEmissaoN2O": 4,
+  "escopo": "ESCOPO1"
+} combustivel.service.ts:155:13
+🔍 Validando combustível: {
+  "nome": "arabic",
+  "tipo": "FOSSIL",
+  "unidade": "m³",
+  "fatorEmissaoCO2": 12,
+  "fatorEmissaoCH4": 3,
+  "fatorEmissaoN2O": 4,
+  "escopo": "ESCOPO1"
+} combustivel.service.ts:339:13
+✅ Combustível validado com sucesso combustivel.service.ts:393:13
+📋 Dados validados para envio: {
+  "nome": "arabic",
+  "tipo": "FOSSIL",
+  "unidade": "m³",
+  "fatorEmissaoCO2": 12,
+  "fatorEmissaoCH4": 3,
+  "fatorEmissaoN2O": 4,
+  "escopo": "ESCOPO1"
+} combustivel.service.ts:175:13
+XHRPUT
+http://localhost:8080/calculadoraacv/backend/combustiveis/11
+[HTTP/1.1 200  37ms]
+
+✅ Combustível atualizado com sucesso: arabic - ESCOPO1 combustivel.service.ts:184:17
+✅ Escopo 1 processed successfully: 11 combustivel-table.component.ts:337:17
+Processing Escopo 3: arabic combustivel-table.component.ts:331:13
+🔍 Buscando por nome e escopo: arabic - ESCOPO3 combustivel.service.ts:291:13
+XHRGET
+http://localhost:8080/calculadoraacv/backend/combustiveis/buscar?nome=arabic&escopo=ESCOPO3
+[HTTP/1.1 200  6ms]
+
+✅ Busca resultado para "arabic" - ESCOPO3: ID 12 combustivel.service.ts:301:17
+📝 CombustivelService: Atualizando combustível ID: 12 - arabic - ESCOPO3 combustivel.service.ts:154:13
+📋 Dados para atualização: {
+  "nome": "arabic",
+  "tipo": "FOSSIL",
+  "unidade": "m³",
+  "fatorEmissaoCO2": 0,
+  "fatorEmissaoCH4": 0,
+  "fatorEmissaoN2O": 0,
+  "escopo": "ESCOPO3"
+} combustivel.service.ts:155:13
+🔍 Validando combustível: {
+  "nome": "arabic",
+  "tipo": "FOSSIL",
+  "unidade": "m³",
+  "fatorEmissaoCO2": 0,
+  "fatorEmissaoCH4": 0,
+  "fatorEmissaoN2O": 0,
+  "escopo": "ESCOPO3"
+} combustivel.service.ts:339:13
+✅ Combustível validado com sucesso combustivel.service.ts:393:13
+📋 Dados validados para envio: {
+  "nome": "arabic",
+  "tipo": "FOSSIL",
+  "unidade": "m³",
+  "fatorEmissaoCO2": 0,
+  "fatorEmissaoCH4": 0,
+  "fatorEmissaoN2O": 0,
+  "escopo": "ESCOPO3"
+} combustivel.service.ts:175:13
+XHRPUT
+http://localhost:8080/calculadoraacv/backend/combustiveis/12
+[HTTP/1.1 200  17ms]
+
+✅ Combustível atualizado com sucesso: arabic - ESCOPO3 combustivel.service.ts:184:17
+✅ Escopo 3 processed successfully: 12 combustivel-table.component.ts:337:17
+🔥 CombustivelService: Listando todos os combustíveis combustivel.service.ts:76:13
+XHRGET
+http://localhost:8080/calculadoraacv/backend/combustiveis
+[HTTP/1.1 200  7ms]
+
+✅ Combustíveis listados com sucesso: 12 itens combustivel.service.ts:82:17
+XHRGET
+http://localhost:8080/calculadoraacv/backend/combustiveis/buscar?nome=arabic
+[HTTP/1.1 200  25ms]
+
+💾 Salvando escopo1 - Nome: arabic | Unidade: m³ | Fatores: 
+Object { co2: 12, ch4: 3, n2o: 4 }
+fuel-registration-modal.component.ts:390:13
+🔄 Sincronização nome/unidade aplicada para ambos escopos fuel-registration-modal.component.ts:403:15
+

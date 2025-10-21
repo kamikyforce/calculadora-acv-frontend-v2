@@ -1,0 +1,1237 @@
+<div class="fase-rebanho-container">
+  <!-- Removido cabeçalho Gov.br local para evitar duplicidade. O cabeçalho permanece apenas na página pai (Jornada Pecuarista). -->
+
+  <!-- Removido botão/flag "Concluir fase" conforme especificação -->
+
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="spinner"></div>
+    <p>Carregando dados do rebanho...</p>
+  </div>
+
+  <!-- Conteúdo principal -->
+  <div *ngIf="!isLoading" class="fase-content">
+    <!-- Sidebar com lotes -->
+    <div class="lotes-sidebar" *ngIf="false">
+      <div class="sidebar-header">
+        <h3>Lotes do Rebanho</h3>
+      </div>
+
+      <div class="lotes-list">
+        <div 
+          *ngFor="let lote of lotes" 
+          class="lote-item"
+          [class.active]="loteAtivo?.id === lote.id"
+          (click)="selecionarLote(lote)"
+        >
+          <div class="lote-info">
+            <h4>{{ lote.nome }}</h4>
+            <span class="lote-ordem">Ordem: {{ lote.ordem }}</span>
+          </div>
+          <div class="lote-actions" *ngIf="!readonly">
+            <button 
+              type="button" 
+              class="btn-icon"
+              (click)="abrirModalLote(lote); $event.stopPropagation()"
+              title="Editar lote"
+            >
+              <i class="fas fa-edit" aria-hidden="true"></i>
+            </button>
+            <button 
+              type="button" 
+              class="btn-icon btn-danger"
+              (click)="confirmarExclusaoLote(lote); $event.stopPropagation()"
+              title="Excluir lote"
+            >
+              <i class="fas fa-trash" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="lotes.length === 0" class="empty-state">
+          <i class="fas fa-cow fa-2x" aria-hidden="true"></i>
+          <p>Nenhum lote cadastrado</p>
+          <button 
+            *ngIf="!readonly"
+            type="button" 
+            class="br-button"
+            (click)="toggleNovoLotePanel()"
+          >
+            <i class="fas fa-plus" aria-hidden="true"></i>
+            Adicionar lote
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-actions" *ngIf="!readonly">
+        <button type="button" class="br-button" (click)="toggleNovoLotePanel()">
+          <i class="fas fa-plus" aria-hidden="true"></i>
+          Adicionar lote
+        </button>
+      </div>
+    </div>
+
+    <!-- Conteúdo das abas -->
+    <div class="abas-content">
+      <div class="lote-details">
+        <!-- Navegação das abas -->
+        <nav class="abas-nav">
+          <button 
+            type="button"
+            class="aba-btn"
+            [class.active]="abaAtiva === 'informacoes'"
+            (click)="selecionarAba('informacoes')"
+          >
+            <i class="fas fa-info-circle" aria-hidden="true"></i>
+            Informações Gerais
+          </button>
+          <button 
+            type="button"
+            class="aba-btn"
+            [class.active]="abaAtiva === 'nutricao'"
+            [disabled]="abaAtiva !== 'nutricao' && !canIrParaNutricao()"
+            (click)="selecionarAba('nutricao')"
+          >
+            <i class="fas fa-apple-alt" aria-hidden="true"></i>
+            Nutrição Animal
+          </button>
+          <button 
+            type="button"
+            class="aba-btn"
+            [class.active]="abaAtiva === 'manejo'"
+            [disabled]="abaAtiva !== 'manejo' && !canIrParaManejo()"
+            (click)="selecionarAba('manejo')"
+          >
+            <i class="fas fa-recycle" aria-hidden="true"></i>
+            Manejo de Dejetos
+          </button>
+        </nav>
+
+        <!-- Conteúdo das abas -->
+        <div class="aba-content">
+          <!-- Aba Informações Gerais -->
+          <div *ngIf="abaAtiva === 'informacoes'" class="aba-panel">
+            <!-- Estado vazio centralizado quando não houver lotes, oculto se painel de novo lote estiver aberto -->
+            <div *ngIf="(!lotes || lotes.length === 0) && (!novoLotesPanels || novoLotesPanels.length === 0)" class="empty-state-tab" style="display:flex; align-items:center; justify-content:center; min-height: 300px; text-align:center;">
+              <div>
+                <p>Não existem lotes em Informações Gerais.</p>
+              </div>
+            </div>
+
+            <!-- Cards de lotes existentes -->
+            <div *ngFor="let lote of lotes" class="lote-card">
+              <div class="card-header">
+                <button type="button" class="arrow-button" title="Expandir/recolher lote"
+                  (click)="toggleLoteCard(lote.id!)" [class.expanded]="expandedLotes[lote.id!]">
+                  <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                </button>
+                <h4 class="card-title">{{ lote.nome }}</h4>
+              </div>
+
+              <div class="card-body" *ngIf="expandedLotes[lote.id!]">
+                <div class="data-table scroll-x">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Categoria<br>animal</th>
+                        <th>Animais na<br>fazenda</th>
+                        <th>Peso médio<br>vivo (kg)</th>
+                        <th>Animais<br>comprados</th>
+                        <th>Peso médio vivo<br>(comprados)</th>
+                        <th>Animais<br>vendidos</th>
+                        <th>Peso médio vivo<br>(vendidos)</th>
+                        <th>Permanência<br>(meses)</th>
+                        <th *ngIf="shouldShowIdadeDesmamelColumn(loteFormRowsById[lote.id!] || [])">Idade de<br>desmame</th>
+                        <th *ngIf="shouldShowMilkColumnsForRowGroup(loteFormRowsById[lote.id!] || [])">Fêmeas prenhas<br>(% ao ano)</th>
+                        <th *ngIf="shouldShowMilkColumnsForRowGroup(loteFormRowsById[lote.id!] || [])">Produção de leite<br>(l/vaca/ano)</th>
+                        <th *ngIf="shouldShowMilkColumnsForRowGroup(loteFormRowsById[lote.id!] || [])">Teor de gordura<br>no leite (%)</th>
+                        <th *ngIf="shouldShowMilkColumnsForRowGroup(loteFormRowsById[lote.id!] || [])">Teor de proteína<br>no leite (%)</th>
+                        <th *ngIf="!readonly">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let row of (loteFormRowsById[lote.id!] || []); let i = index">
+                        <td>
+                          <select class="form-control" [(ngModel)]="row.categoriaCorteId" (ngModelChange)="onCategoriaCorteChange(row)">
+                            <option [ngValue]="undefined">Selecione</option>
+                            <option *ngFor="let cat of categoriasCorteFiltradas" [ngValue]="cat.id">{{ cat.categoria }}</option>
+                          </select>
+                        </td>
+                        <td><input type="number" class="form-control" [(ngModel)]="row.animaisFazenda" min="0" /></td>
+                        <td><input type="number" class="form-control" [(ngModel)]="row.pesoMedioVivo" min="0" step="0.1" /></td>
+                        <td>
+                          <div class="input-with-warning">
+                            <input type="number" class="form-control" [(ngModel)]="row.animaisComprados" min="0" (ngModelChange)="onAnimaisCompradosChange(row)" />
+                            <button *ngIf="(row.animaisComprados || 0) > 0 && (row.pesoMedioComprados || 0) > 0"
+                              type="button" class="warning-inline" title="Distribuir por CAR"
+                              (click)="abrirCarDistribuicao(lote, row)">
+                              <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                            </button>
+                          </div>
+                        </td>
+                        <td>
+                          <div class="input-with-warning">
+                            <input type="number" class="form-control" [(ngModel)]="row.pesoMedioComprados" min="0" step="0.1" [disabled]="(row.animaisComprados || 0) === 0" />
+                            <button *ngIf="(row.animaisComprados || 0) > 0 && (row.pesoMedioComprados || 0) > 0"
+                              type="button" class="warning-inline" title="Distribuir por CAR"
+                              (click)="abrirCarDistribuicao(lote, row)">
+                              <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                            </button>
+                          </div>
+                        </td>
+                        <td><input type="number" class="form-control" [(ngModel)]="row.animaisVendidos" min="0" (ngModelChange)="onAnimaisVendidosChange(row)" /></td>
+                        <td><input type="number" class="form-control" [(ngModel)]="row.pesoMedioVendidos" min="0" step="0.1" [disabled]="(row.animaisVendidos || 0) === 0" /></td>
+                        <td><input type="number" class="form-control" [(ngModel)]="row.permanenciaMeses" min="0" /></td>
+                        <td *ngIf="shouldShowIdadeDesmamelColumn(loteFormRowsById[lote.id!] || [])"><input type="number" class="form-control" [(ngModel)]="row.idadeDesmame" min="0" [disabled]="!isCategoriaBezerroById(row.categoriaCorteId)" /></td>
+                        <!-- Campos de leite: aparecem apenas quando tipo LEITE e categoria elegível -->
+                        <!-- Grupo com inputs quando elegível -->
+                        <td *ngIf="shouldShowMilkColumnsForRowGroup(loteFormRowsById[lote.id!] || []) && categoriaExigeCamposAdicionais(row)"><input type="number" class="form-control" [(ngModel)]="row.femasPrenhasPercent" min="0" step="0.1" /></td>
+                        <td *ngIf="shouldShowMilkColumnsForRowGroup(loteFormRowsById[lote.id!] || []) && categoriaExigeCamposAdicionais(row)"><input type="number" class="form-control" [(ngModel)]="row.producaoLeite" min="0" step="0.1" /></td>
+                        <td *ngIf="shouldShowMilkColumnsForRowGroup(loteFormRowsById[lote.id!] || []) && categoriaExigeCamposAdicionais(row)"><input type="number" class="form-control" [(ngModel)]="row.teorGorduraLeite" min="0" step="0.1" /></td>
+                        <td *ngIf="shouldShowMilkColumnsForRowGroup(loteFormRowsById[lote.id!] || []) && categoriaExigeCamposAdicionais(row)"><input type="number" class="form-control" [(ngModel)]="row.teorProteinaLeite" min="0" step="0.1" /></td>
+                        <!-- Grupo de placeholders quando não elegível, para manter alinhamento -->
+                        <td *ngIf="shouldShowMilkColumnsForRowGroup(loteFormRowsById[lote.id!] || []) && !categoriaExigeCamposAdicionais(row)"></td>
+                        <td *ngIf="shouldShowMilkColumnsForRowGroup(loteFormRowsById[lote.id!] || []) && !categoriaExigeCamposAdicionais(row)"></td>
+                        <td *ngIf="shouldShowMilkColumnsForRowGroup(loteFormRowsById[lote.id!] || []) && !categoriaExigeCamposAdicionais(row)"></td>
+                        <td *ngIf="shouldShowMilkColumnsForRowGroup(loteFormRowsById[lote.id!] || []) && !categoriaExigeCamposAdicionais(row)"></td>
+                        <!-- Coluna de ações com lixeira azul -->
+                        <td *ngIf="!readonly" class="actions-column">
+                          <button type="button" class="btn-remove-category" title="Remover categoria" 
+                                  (click)="confirmarRemocaoCategoria(lote.id!, i)">
+                            <i class="fas fa-trash" aria-hidden="true"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="panel-actions" *ngIf="!readonly">
+                  <button type="button" class="br-button link" (click)="adicionarCategoriaLinhaCard(lote.id!)">
+                    <i class="fas fa-plus" aria-hidden="true"></i>
+                    Adicionar categoria
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Painéis expansíveis: Adicionar Lote (inline, múltiplos) -->
+            <div *ngFor="let panel of novoLotesPanels; let pi = index" class="lote-editor-panel">
+              <div class="inline-fields">
+                <button type="button" class="arrow-button" title="Expandir/recolher lote"
+                  (click)="toggleNovoLoteEditor(pi)" [class.expanded]="panel.expanded">
+                  <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                </button>
+                <label class="br-label" [attr.for]="'novo-nome-lote-' + pi">Nome do lote</label>
+                <div class="br-input">
+                  <input [attr.id]="'novo-nome-lote-' + pi" type="text" class="form-control" [(ngModel)]="panel.novoLote.nome" placeholder="Ex: Lote 03-2025" maxlength="100" />
+                </div>
+              </div>
+
+              <div class="data-table scroll-x" *ngIf="panel.expanded">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Categoria<br>animal</th>
+                      <th>Animais na<br>fazenda</th>
+                      <th>Peso médio<br>vivo (kg)</th>
+                      <th>Animais<br>comprados</th>
+                      <th>Peso médio vivo<br>(comprados)</th>
+                      <th>Animais<br>vendidos</th>
+                      <th>Peso médio vivo<br>(vendidos)</th>
+                      <th>Permanência<br>(meses)</th>
+                      <th *ngIf="shouldShowIdadeDesmamelColumn(panel.categoriasRows)">Idade de<br>desmame</th>
+                      <th *ngIf="shouldShowMilkColumnsForRowGroup(panel.categoriasRows)">Fêmeas prenhas<br>(% ao ano)</th>
+                      <th *ngIf="shouldShowMilkColumnsForRowGroup(panel.categoriasRows)">Produção de leite<br>(l/vaca/ano)</th>
+                      <th *ngIf="shouldShowMilkColumnsForRowGroup(panel.categoriasRows)">Teor de gordura<br>no leite (%)</th>
+                      <th *ngIf="shouldShowMilkColumnsForRowGroup(panel.categoriasRows)">Teor de proteína<br>no leite (%)</th>
+                      <th *ngIf="!readonly">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let row of panel.categoriasRows; let i = index">
+                      <td>
+                        <select class="form-control" [(ngModel)]="row.categoriaCorteId" (ngModelChange)="onCategoriaCorteChange(row)">
+                          <option [ngValue]="undefined">Selecione</option>
+                          <option *ngFor="let c of categoriasCorteFiltradas" [ngValue]="c.id">{{ c.categoria }}</option>
+                        </select>
+                      </td>
+                      <td><input type="number" class="form-control" [(ngModel)]="row.animaisFazenda" min="0" /></td>
+                      <td><input type="number" class="form-control" [(ngModel)]="row.pesoMedioVivo" min="0" step="0.1" /></td>
+                      <td>
+                        <div class="input-with-warning">
+                          <input type="number" class="form-control" [(ngModel)]="row.animaisComprados" min="0" (ngModelChange)="onAnimaisCompradosChange(row)" />
+                          <button *ngIf="(row.animaisComprados || 0) > 0 && (row.pesoMedioComprados || 0) > 0"
+                            type="button" class="warning-inline" title="Distribuir por CAR"
+                            (click)="abrirCarDistribuicao(panel.novoLote, row)">
+                            <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                          </button>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="input-with-warning">
+                          <input type="number" class="form-control" [(ngModel)]="row.pesoMedioComprados" min="0" step="0.1" [disabled]="(row.animaisComprados || 0) === 0" />
+                          <button *ngIf="(row.animaisComprados || 0) > 0 && (row.pesoMedioComprados || 0) > 0"
+                            type="button" class="warning-inline" title="Distribuir por CAR"
+                            (click)="abrirCarDistribuicao(panel.novoLote, row)">
+                            <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                          </button>
+                        </div>
+                      </td>
+                      <td><input type="number" class="form-control" [(ngModel)]="row.animaisVendidos" min="0" (ngModelChange)="onAnimaisVendidosChange(row)" /></td>
+                      <td><input type="number" class="form-control" [(ngModel)]="row.pesoMedioVendidos" min="0" step="0.1" [disabled]="(row.animaisVendidos || 0) === 0" /></td>
+                      <td><input type="number" class="form-control" [(ngModel)]="row.permanenciaMeses" min="0" /></td>
+                      <td *ngIf="shouldShowIdadeDesmamelColumn(panel.categoriasRows)"><input type="number" class="form-control" [(ngModel)]="row.idadeDesmame" min="0" [disabled]="!isCategoriaBezerroById(row.categoriaCorteId)" /></td>
+                      <!-- Campos de leite: aparecem apenas quando tipo LEITE e categoria elegível -->
+                      <!-- Grupo com inputs quando elegível -->
+                      <td *ngIf="shouldShowMilkColumnsForRowGroup(panel.categoriasRows) && categoriaExigeCamposAdicionais(row)"><input type="number" class="form-control" [(ngModel)]="row.femasPrenhasPercent" min="0" step="0.1" /></td>
+                      <td *ngIf="shouldShowMilkColumnsForRowGroup(panel.categoriasRows) && categoriaExigeCamposAdicionais(row)"><input type="number" class="form-control" [(ngModel)]="row.producaoLeite" min="0" step="0.1" /></td>
+                      <td *ngIf="shouldShowMilkColumnsForRowGroup(panel.categoriasRows) && categoriaExigeCamposAdicionais(row)"><input type="number" class="form-control" [(ngModel)]="row.teorGorduraLeite" min="0" step="0.1" /></td>
+                      <td *ngIf="shouldShowMilkColumnsForRowGroup(panel.categoriasRows) && categoriaExigeCamposAdicionais(row)"><input type="number" class="form-control" [(ngModel)]="row.teorProteinaLeite" min="0" step="0.1" /></td>
+                      <!-- Grupo de placeholders quando não elegível, para manter alinhamento -->
+                      <td *ngIf="shouldShowMilkColumnsForRowGroup(panel.categoriasRows) && !categoriaExigeCamposAdicionais(row)"></td>
+                      <td *ngIf="shouldShowMilkColumnsForRowGroup(panel.categoriasRows) && !categoriaExigeCamposAdicionais(row)"></td>
+                      <td *ngIf="shouldShowMilkColumnsForRowGroup(panel.categoriasRows) && !categoriaExigeCamposAdicionais(row)"></td>
+                      <td *ngIf="shouldShowMilkColumnsForRowGroup(panel.categoriasRows) && !categoriaExigeCamposAdicionais(row)"></td>
+                      <!-- Coluna de ações com lixeira azul -->
+                      <td *ngIf="!readonly" class="actions-column">
+                        <button type="button" class="btn-remove-category" title="Remover categoria" 
+                                (click)="confirmarRemocaoCategoriaNovo(pi, i)">
+                          <i class="fas fa-trash" aria-hidden="true"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="panel-actions" *ngIf="!readonly">
+                <button type="button" class="br-button link" (click)="adicionarCategoriaLinha(pi)">
+                  <i class="fas fa-plus" aria-hidden="true"></i>
+                  Adicionar categoria
+                </button>
+              </div>
+            </div>
+            
+            <!-- Bloco de cabeçalho/ações e tabela de categorias removido para alinhar ao protótipo.
+                 Após salvar um lote, apenas o card colapsado deve ser exibido
+                 sem conteúdo adicional abaixo na aba de Informações Gerais. -->
+          </div>
+          <!-- Rodapé superior só para a aba Informações Gerais -->
+          <div class="footer-actions" *ngIf="abaAtiva === 'informacoes'">
+            <div class="left-actions" *ngIf="abaAtiva === 'informacoes' && !readonly">
+              <button type="button" class="br-button secondary" (click)="toggleNovoLotePanel()">
+                <i class="fas fa-plus" aria-hidden="true"></i>
+                Adicionar lote
+              </button>
+              <button type="button" class="br-button secondary" (click)="abrirConfirmLimparTodos()" title="Apagar todos os lotes" [disabled]="!((lotes && lotes.length > 0) || (novoLotesPanels && novoLotesPanels.length > 0))">
+                <i class="fas fa-trash" aria-hidden="true"></i>
+                Limpar tudo
+              </button>
+            </div>
+            <div class="right-actions">
+              <button type="button" class="br-button secondary" (click)="voltar()">Voltar</button>
+              <button type="button" class="br-button secondary" (click)="continuar()" [disabled]="!canIrParaNutricao()" [title]="getTooltipContinuar()">Continuar</button>
+            </div>
+          </div>
+
+          <!-- Aba Nutrição Animal -->
+          <div *ngIf="abaAtiva === 'nutricao'" class="aba-panel">
+
+            <!-- Campos iniciais -->
+            <div class="inline-fields nutricao-top" *ngIf="lotes && lotes.length > 0">
+              <div class="form-group">
+                <label class="br-label" for="inserir-dados-dieta">Inserir dados da dieta?</label>
+                <select id="inserir-dados-dieta" class="form-control" [(ngModel)]="inserirDadosDieta" (ngModelChange)="onInserirDadosDietaChange($event)">
+                  <option [ngValue]="undefined">Selecione</option>
+                  <option [ngValue]="'Sim'">Sim</option>
+                  <option [ngValue]="'Não'">Não</option>
+                </select>
+              </div>
+              <div class="form-group" *ngIf="inserirDadosDieta === 'Sim'">
+                <label class="br-label" for="sistema-producao">Sistema de produção</label>
+                <select id="sistema-producao" class="form-control" [(ngModel)]="sistemaProducao">
+                  <option [ngValue]="undefined">Selecione</option>
+                  <option [ngValue]="'PASTO'">Pasto</option>
+                  <option [ngValue]="'SEMI_CONFINADO'">Semi-confinado</option>
+                  <option [ngValue]="'CONFINADO'">Confinado</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Disclaimer quando dados da dieta = não -->
+            <div *ngIf="inserirDadosDieta === 'Não'" class="alert alert-info nutricao-disclaimer">
+              <i class="fas fa-info-circle" aria-hidden="true"></i>
+              Ao não inserir os dados da dieta, será feita a busca pela equivalência com a tabela de classificação da Quarta Comunicação Nacional (4CN).
+            </div>
+
+            <!-- Estado vazio centralizado quando não houver lotes -->
+            <div *ngIf="!lotes || lotes.length === 0" class="empty-state-tab" style="display:flex; align-items:center; justify-content:center; min-height: 300px; text-align:center;">
+              <div>
+                <p>Não existem lotes na Nutrição Animal.</p>
+              </div>
+            </div>
+
+            <!-- Componentes por lote -->
+            <ng-container *ngIf="inserirDadosDieta === 'Sim'">
+              <div *ngFor="let lote of lotes" class="lote-card">
+              <div class="card-header">
+                <button type="button" class="arrow-button" title="Expandir/recolher lote"
+                  (click)="toggleNutriLote(lote.id!)" [class.expanded]="expandedNutriLotes[lote.id!]">
+                  <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                </button>
+                <h4 class="card-title">{{ lote.nome }}</h4>
+              </div>
+
+              <div class="card-body" *ngIf="expandedNutriLotes[lote.id!]">
+                <!-- Pastejo -->
+                <div class="collapse-panel" *ngIf="sistemaProducao !== 'CONFINADO'">
+                  <div class="collapse-header" (click)="toggleSection(lote.id!, 'pastejo')">
+                    <span>Pastejo</span>
+                    <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                  </div>
+                  <div class="collapse-body" *ngIf="sectionsExpandedByLoteId[lote.id!]?.pastejo">
+                    <div class="data-table scroll-x">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Categoria animal</th>
+                            <th>Tempo a pasto (h/d)</th>
+                            <th>Tempo a pasto (d/ano)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let cat of (categoriasPorLoteId[lote.id!] || []); let i = index">
+                            <td>{{ getCategoriaCorteLabel(cat.categoriaCorteId) }}</td>
+                            <td><input type="number" class="form-control" [(ngModel)]="pastejoByLoteId[lote.id!][i].horasPorDia" min="0" step="0.1" /></td>
+                            <td><input type="number" class="form-control" [(ngModel)]="pastejoByLoteId[lote.id!][i].diasPorAno" min="0" /></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Ingredientes -->
+                <div class="collapse-panel">
+                  <div class="collapse-header" (click)="toggleSection(lote.id!, 'ingredientes')">
+                    <span>Ingredientes</span>
+                    <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                  </div>
+                  <div class="collapse-body" *ngIf="sectionsExpandedByLoteId[lote.id!]?.ingredientes">
+                    <div class="data-table scroll-x">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Categoria animal</th>
+                            <th>Ingrediente</th>
+                            <th>Quantidade (kg/cab/d)</th>
+                            <th>Oferta (d/ano)</th>
+                            <th>Produção</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let cat of (categoriasPorLoteId[lote.id!] || []); let i = index">
+                            <td>{{ getCategoriaCorteLabel(cat.categoriaCorteId) }}</td>
+                            <td>
+                              <select 
+                                class="form-control" 
+                                [(ngModel)]="ingredientesByLoteId[lote.id!][i].ingrediente"
+                                [disabled]="isLoadingIngredientes"
+                              >
+                                <option value="">Selecione um ingrediente</option>
+                                <option 
+                                  *ngFor="let ingrediente of ingredientesFiltrados" 
+                                  [value]="ingrediente"
+                                >
+                                  {{ ingrediente }}
+                                </option>
+                              </select>
+                              <div *ngIf="isLoadingIngredientes" class="loading-text">
+                                <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+                                Carregando ingredientes...
+                              </div>
+                            </td>
+                            <td><input type="number" class="form-control" [(ngModel)]="ingredientesByLoteId[lote.id!][i].quantidadeKgCabDia" min="0" step="1" /></td>
+                            <td><input type="number" class="form-control" [(ngModel)]="ingredientesByLoteId[lote.id!][i].ofertaDiasAno" min="0" step="1" /></td>
+                            <td>
+                              <select class="form-control" [(ngModel)]="ingredientesByLoteId[lote.id!][i].producao">
+                                <option value="">Selecione</option>
+                                <option [ngValue]="'INTERNA'">Interna</option>
+                                <option [ngValue]="'EXTERNA'">Externa</option>
+                              </select>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Concentrado -->
+                <div class="collapse-panel">
+                  <div class="collapse-header" (click)="toggleSection(lote.id!, 'concentrado')">
+                    <span>Concentrado</span>
+                    <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                  </div>
+                  <div class="collapse-body" *ngIf="sectionsExpandedByLoteId[lote.id!]?.concentrado">
+                    <div class="data-table scroll-x">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Categoria animal</th>
+                            <th>Proteína bruta (%)</th>
+                            <th>Uréia</th>
+                            <th>Subproduto</th>
+                            <th>Quantidade (kg/cab/d)</th>
+                            <th>Oferta (d/ano)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let cat of (categoriasPorLoteId[lote.id!] || []); let i = index">
+                            <td>{{ getCategoriaCorteLabel(cat.categoriaCorteId) }}</td>
+                            <td>
+                              <select class="form-control" [(ngModel)]="concentradoByLoteId[lote.id!][i].proteinaBrutaPercentual">
+                                <option value="">Selecione</option>
+                                <option [ngValue]="15">15</option>
+                                <option [ngValue]="17">17</option>
+                                <option [ngValue]="18">18</option>
+                                <option [ngValue]="19">19</option>
+                                <option [ngValue]="20">20</option>
+                                <option [ngValue]="22">22</option>
+                                <option [ngValue]="24">24</option>
+                                <option [ngValue]="27">27</option>
+                              </select>
+                            </td>
+                            <td>
+                              <select class="form-control" [(ngModel)]="concentradoByLoteId[lote.id!][i].ureia">
+                                <option value="">Selecione</option>
+                                <option value="Com">Com</option>
+                                <option value="Sem">Sem</option>
+                              </select>
+                            </td>
+                            <td>
+                              <select class="form-control" [(ngModel)]="concentradoByLoteId[lote.id!][i].subproduto">
+                                <option value="">Selecione</option>
+                                <option value="Com">Com</option>
+                                <option value="Sem">Sem</option>
+                              </select>
+                            </td>
+                            <td><input type="number" class="form-control" [(ngModel)]="concentradoByLoteId[lote.id!][i].quantidade" min="0" step="0.000001" /></td>
+                            <td><input type="number" class="form-control" [(ngModel)]="concentradoByLoteId[lote.id!][i].oferta" min="0" step="1" /></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Aditivo -->
+                <div class="collapse-panel">
+                  <div class="collapse-header" (click)="toggleSection(lote.id!, 'aditivo')">
+                    <span>Aditivo</span>
+                    <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                  </div>
+                  <div class="collapse-body" *ngIf="sectionsExpandedByLoteId[lote.id!]?.aditivo">
+                    <div class="data-table scroll-x">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Categoria animal</th>
+                            <th>Tipo</th>
+                            <th>Dose (mg/kg)</th>
+                            <th>Oferta (d/ano)</th>
+                            <th>Percentual de categoria (%)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let cat of (categoriasPorLoteId[lote.id!] || []); let i = index">
+                            <td>{{ getCategoriaCorteLabel(cat.categoriaCorteId) }}</td>
+                            <td>
+                              <select class="form-control" [(ngModel)]="aditivoByLoteId[lote.id!][i].tipo">
+                                <option value="">Selecione</option>
+                                <option value="3NOP (Bovaer)">3NOP (Bovaer)</option>
+                                <option value="Nitrato (Silvair)">Nitrato (Silvair)</option>
+                                <option value="Outro">Outro</option>
+                              </select>
+                            </td>
+                            <td><input type="number" class="form-control" [(ngModel)]="aditivoByLoteId[lote.id!][i].dose" min="0" step="0.000001" /></td>
+                            <td><input type="number" class="form-control" [(ngModel)]="aditivoByLoteId[lote.id!][i].oferta" min="0" step="1" /></td>
+                            <td><input type="number" class="form-control" [(ngModel)]="aditivoByLoteId[lote.id!][i].percentualAdicional" min="0" max="100" step="0.1" placeholder="%" /></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+            </div>
+            </div>
+          </div>
+            </div>
+          </ng-container>
+
+          <!-- Rodapé específico da aba Nutrição: mover Voltar/Continuar para baixo -->
+          <div class="footer-actions" *ngIf="abaAtiva === 'nutricao'">
+            <div class="right-actions">
+              <button type="button" class="br-button secondary" (click)="voltar()">Voltar</button>
+              <button type="button" class="br-button secondary" (click)="continuar()" [disabled]="!canIrParaManejo()" [title]="getTooltipContinuar()">Continuar</button>
+            </div>
+          </div>
+
+          </div>
+
+          <!-- Aba Manejo de Dejetos (novo layout, fidelidade ao Figma) -->
+          <div *ngIf="abaAtiva === 'manejo'" class="aba-panel">
+
+            <div class="data-table scroll-x table-section" *ngIf="lotes && lotes.length > 0">
+              <table class="br-table table-manejo">
+                <thead>
+                  <tr>
+                    <th class="col-lote">Lote</th>
+                    <th class="col-categoria">Categoria</th>
+                    <th class="col-tipo">Tipo de manejo de dejeto</th>
+                    <th class="col-percentual">Percentual do rebanho</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <ng-container *ngFor="let lote of lotes">
+                    <!-- Agrupamento por categoria: lote e categoria aparecem uma vez, tipos/percentuais bifurcam em linhas -->
+                    <ng-container *ngFor="let cat of (categoriasPorLoteIdUnicas[lote.id!] || [])">
+                      <ng-container *ngFor="let item of (manejosPorLoteCategoria[lote.id!]?.[getCategoriaCorteLabel(cat.categoriaCorteId)] || []); let i = index">
+                        <tr class="row-item">
+                          <!-- Lote e Categoria com rowspan para não repetir -->
+                          <td class="col-lote" *ngIf="i === 0" [attr.rowspan]="(manejosPorLoteCategoria[lote.id!]?.[getCategoriaCorteLabel(cat.categoriaCorteId)] || []).length">{{ lote.nome }}</td>
+                          <td class="col-categoria" *ngIf="i === 0" [attr.rowspan]="(manejosPorLoteCategoria[lote.id!]?.[getCategoriaCorteLabel(cat.categoriaCorteId)] || []).length">{{ getCategoriaCorteLabel(cat.categoriaCorteId) }}</td>
+                          <td class="col-tipo">
+                            <div class="tipo-manejo-row">
+                              <select class="form-control" name="tipo-{{lote.id}}-{{getCategoriaCorteLabel(cat.categoriaCorteId)}}-{{item.id || 'novo'}}" [ngModel]="item.tipoManejo" (ngModelChange)="atualizarTipoManejo(lote.id!, getCategoriaCorteLabel(cat.categoriaCorteId), item, 'tipoManejo', $event)">
+                                <option [ngValue]="''" disabled>Tipo de manejo</option>
+                                <option *ngFor="let tipo of tiposManejoOpcoes" [ngValue]="tipo.value">{{ tipo.label }}</option>
+                              </select>
+                              <!-- Ícones ao lado do campo de manejo -->
+                              <button type="button" class="btn-icon" (click)="adicionarTipoManejo(lote.id!, getCategoriaCorteLabel(cat.categoriaCorteId))" title="Adicionar tipo">
+                                <i class="fas fa-plus" aria-hidden="true"></i>
+                              </button>
+                              <button type="button" class="btn-icon btn-danger" (click)="removerTipoManejo(lote.id!, getCategoriaCorteLabel(cat.categoriaCorteId), item)" title="Excluir tipo">
+                                <i class="fas fa-times" aria-hidden="true"></i>
+                              </button>
+                            </div>
+                          </td>
+                          <td class="col-percentual">
+                            <input class="form-control" name="perc-{{lote.id}}-{{getCategoriaCorteLabel(cat.categoriaCorteId)}}-{{item.id || 'novo'}}" type="number" min="0" max="100" [ngModel]="item.percentualRebanho" (ngModelChange)="atualizarTipoManejo(lote.id!, getCategoriaCorteLabel(cat.categoriaCorteId), item, 'percentualRebanho', $event)" placeholder="X%" />
+                          </td>
+                        </tr>
+                      </ng-container>
+                    </ng-container>
+                  </ng-container>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Estado vazio centralizado quando não houver lotes -->
+            <div *ngIf="!lotes || lotes.length === 0" class="empty-state-tab" style="display:flex; align-items:center; justify-content:center; min-height: 300px; text-align:center;">
+              <div>
+                <p>Não existem lotes em Manejo de Dejetos.</p>
+              </div>
+            </div>
+
+            
+          </div>
+        </div>
+      </div>
+
+  <!-- Rodapé específico da aba Manejo: mover Voltar/Continuar para baixo -->
+  <div class="footer-actions" *ngIf="abaAtiva === 'manejo'">
+    <div class="right-actions">
+      <button type="button" class="br-button secondary" (click)="voltar()">Voltar</button>
+      <button type="button" class="br-button secondary" [disabled]="!canContinuarManejo()" (click)="validarPercentualGeral() && continuar()" [title]="getTooltipContinuar()">Continuar</button>
+    </div>
+  </div>
+
+  <!-- Indicador de salvamento -->
+  <div *ngIf="isSaving" class="saving-indicator">
+    <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+    Salvando...
+  </div>
+</div>
+
+<!-- Modal de validação: quantidades não conferem -->
+<div *ngIf="showQuantidadeMismatchModal" class="modal-overlay" (click)="fecharQuantidadeMismatchModal()">
+  <div class="modal-content modal-small quantidade-mismatch-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Quantidades não conferem</h3>
+      <button type="button" class="btn-close" (click)="fecharQuantidadeMismatchModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p>Para avançar, ajuste as linhas em que <strong>Animais vendidos</strong> é maior que a soma de <strong>Animais da fazenda + Animais comprados</strong>:</p>
+      <ul>
+        <li *ngFor="let e of quantidadeMismatchErros">
+          <strong>{{ e.loteNome }} — Categoria {{ e.categoriaLabel }}</strong><br>
+          <small>{{ e.mensagem }}</small>
+        </li>
+      </ul>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="br-button primary" (click)="fecharQuantidadeMismatchModal()">Entendi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Lote -->
+<div *ngIf="showLoteModal" class="modal-overlay" (click)="fecharModalLote()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ editingLoteId ? 'Editar' : 'Novo' }} Lote</h3>
+      <button type="button" class="btn-close" (click)="fecharModalLote()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="lote-nome">Nome do Lote *</label>
+        <input 
+          id="lote-nome"
+          type="text" 
+          class="form-control"
+          [(ngModel)]="novoLote.nome"
+          placeholder="Ex: Lote 1 - Bezerros"
+          maxlength="100"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="lote-ordem">Ordem</label>
+        <input 
+          id="lote-ordem"
+          type="number" 
+          class="form-control"
+          [(ngModel)]="novoLote.ordem"
+          min="1"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="lote-observacoes">Observações</label>
+        <textarea 
+          id="lote-observacoes"
+          class="form-control"
+          [(ngModel)]="novoLote.observacoes"
+          rows="3"
+          maxlength="500"
+          placeholder="Observações sobre o lote..."
+        ></textarea>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="br-button secondary" (click)="fecharModalLote()">
+        Cancelar
+      </button>
+      <button 
+        type="button" 
+        class="br-button"
+        (click)="salvarLote()"
+        [disabled]="isSaving || !novoLote.nome?.trim()"
+      >
+        <i *ngIf="isSaving" class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        {{ editingLoteId ? 'Atualizar' : 'Salvar' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Categoria -->
+<div *ngIf="showCategoriaModal" class="modal-overlay" (click)="fecharModalCategoria()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ editingCategoriaId ? 'Editar' : 'Nova' }} Categoria</h3>
+      <button type="button" class="btn-close" (click)="fecharModalCategoria()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="categoria-quantidade">Quantidade de Animais *</label>
+        <input 
+          id="categoria-quantidade"
+          type="number" 
+          class="form-control"
+          [(ngModel)]="novaCategoria.quantidadeAnimais"
+          min="1"
+          placeholder="Ex: 50"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="categoria-peso">Peso Médio (kg) *</label>
+        <input 
+          id="categoria-peso"
+          type="number" 
+          class="form-control"
+          [(ngModel)]="novaCategoria.pesoMedio"
+          min="0.1"
+          step="0.1"
+          placeholder="Ex: 450.5"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="categoria-observacoes">Observações</label>
+        <textarea 
+          id="categoria-observacoes"
+          class="form-control"
+          [(ngModel)]="novaCategoria.observacoes"
+          rows="3"
+          maxlength="500"
+          placeholder="Observações sobre a categoria..."
+        ></textarea>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="fecharModalCategoria()">
+        Cancelar
+      </button>
+      <button 
+        type="button" 
+        class="btn btn-primary"
+        (click)="salvarCategoria()"
+        [disabled]="isSaving || !novaCategoria.quantidadeAnimais || !novaCategoria.pesoMedio"
+      >
+        <i *ngIf="isSaving" class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        {{ editingCategoriaId ? 'Atualizar' : 'Salvar' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nutrição -->
+<div *ngIf="showNutricaoModal" class="modal-overlay" (click)="fecharModalNutricao()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ editingNutricaoId ? 'Editar' : 'Novo' }} Alimento</h3>
+      <button type="button" class="btn-close" (click)="fecharModalNutricao()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="nutricao-inserir">Inserir dados da dieta?</label>
+        <select 
+          id="nutricao-inserir"
+          class="form-control"
+          [(ngModel)]="novaNutricao.inserirDadosDieta"
+        >
+          <option [ngValue]="true">Sim</option>
+          <option [ngValue]="false">Não</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="nutricao-sistema">Sistema de produção *</label>
+        <select 
+          id="nutricao-sistema"
+          class="form-control"
+          [(ngModel)]="novaNutricao.sistemaProducao"
+        >
+          <option [ngValue]="'PASTO'">Pasto</option>
+          <option [ngValue]="'SEMI_CONFINADO'">Semi-confinado</option>
+          <option [ngValue]="'CONFINADO'">Confinado</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="nutricao-pasto-horas">Tempo a pasto (h/d)</label>
+        <input 
+          id="nutricao-pasto-horas"
+          type="number" 
+          class="form-control"
+          [(ngModel)]="novaNutricao.tempoPastoHorasDia"
+          min="0"
+          step="0.1"
+          placeholder="Ex: 8"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="nutricao-pasto-dias">Tempo a pasto (d/ano)</label>
+        <input 
+          id="nutricao-pasto-dias"
+          type="number" 
+          class="form-control"
+          [(ngModel)]="novaNutricao.tempoPastoDiasAno"
+          min="0"
+          step="1"
+          placeholder="Ex: 200"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="nutricao-observacoes">Observações</label>
+        <textarea 
+          id="nutricao-observacoes"
+          class="form-control"
+          [(ngModel)]="novaNutricao.observacoes"
+          rows="3"
+          maxlength="500"
+          placeholder="Observações sobre o alimento..."
+        ></textarea>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="fecharModalNutricao()">
+        Cancelar
+      </button>
+      <button 
+        type="button" 
+        class="btn btn-primary"
+        (click)="salvarNutricao()"
+        [disabled]="isSaving || (novaNutricao.inserirDadosDieta && !novaNutricao.sistemaProducao)"
+      >
+        <i *ngIf="isSaving" class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        {{ editingNutricaoId ? 'Atualizar' : 'Salvar' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Manejo -->
+<div *ngIf="showManejoModal" class="modal-overlay" (click)="fecharModalManejo()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ editingManejoId ? 'Editar' : 'Novo' }} Manejo</h3>
+      <button type="button" class="btn-close" (click)="fecharModalManejo()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="manejo-categoria">Categoria Animal *</label>
+        <select 
+          id="manejo-categoria"
+          class="form-control"
+          [(ngModel)]="novoManejo.categoriaAnimal"
+        >
+          <option value="">Selecione a categoria</option>
+          <option *ngFor="let categoria of categoriasAnimaisOpcoes" [value]="categoria.value">
+            {{ categoria.label }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="manejo-tipo">Tipo de Manejo *</label>
+        <select 
+          id="manejo-tipo"
+          class="form-control"
+          [(ngModel)]="novoManejo.tipoManejo"
+        >
+          <option value="">Selecione o tipo</option>
+          <option *ngFor="let tipo of tiposManejo" [value]="tipo.value">
+            {{ tipo.label }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="manejo-percentual">Percentual do Rebanho (%) *</label>
+        <input 
+          id="manejo-percentual"
+          type="number" 
+          class="form-control"
+          [(ngModel)]="novoManejo.percentualRebanho"
+          min="1"
+          max="100"
+          placeholder="Ex: 80"
+        >
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="fecharModalManejo()">
+        Cancelar
+      </button>
+      <button 
+        type="button" 
+        class="btn btn-primary"
+        (click)="salvarManejo()"
+        [disabled]="isSaving || !novoManejo.categoriaAnimal || !novoManejo.tipoManejo || !novoManejo.percentualRebanho"
+      >
+        <i *ngIf="isSaving" class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        {{ editingManejoId ? 'Atualizar' : 'Salvar' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Confirmação de Exclusão -->
+<div *ngIf="showDeleteConfirmModal" class="modal-overlay" (click)="fecharModalConfirmacao()">
+  <div class="modal-content modal-sm" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Confirmar Exclusão</h3>
+      <button type="button" class="btn-close" (click)="fecharModalConfirmacao()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <p>Tem certeza que deseja excluir este item?</p>
+      <p class="text-warning">
+        <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+        Esta ação não pode ser desfeita.
+      </p>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="fecharModalConfirmacao()">
+        Cancelar
+      </button>
+      <button 
+        type="button" 
+        class="btn btn-danger"
+        (click)="confirmarExclusao()"
+        [disabled]="isSaving"
+      >
+        <i *ngIf="isSaving" class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        Excluir
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Confirmação Limpar Tudo -->
+<div class="br-scrim foco" *ngIf="showClearAllConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="clearAllConfirmModalScrim">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Confirmar exclusão</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="fecharConfirmLimparTodos()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          Tem certeza de que deseja limpar todos os lotes e dados associados? Esta ação não pode ser desfeita.
+        </p>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex align-items-center justify-content-between">
+      <button class="br-button secondary" type="button" data-dismiss="true" (click)="fecharConfirmLimparTodos()">
+        Cancelar
+      </button>
+      <button class="br-button danger" type="button" (click)="limparTodosLotes()" [disabled]="isSaving">
+        <i class="fas fa-trash mr-1" aria-hidden="true"></i>
+        Sim, limpar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de confirmação para remoção de categoria individual -->
+<div class="br-scrim foco" *ngIf="showRemocaoCategoriaModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="removeCategoryConfirmModalScrim">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Confirmar exclusão</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="fecharRemocaoCategoriaModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          Tem certeza de que deseja remover esta categoria? Esta ação não pode ser desfeita.
+        </p>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex align-items-center justify-content-between">
+      <button class="br-button secondary" type="button" data-dismiss="true" (click)="fecharRemocaoCategoriaModal()">
+        Cancelar
+      </button>
+      <button class="br-button danger" type="button" (click)="removerCategoria()" [disabled]="isSaving">
+        <i class="fas fa-trash mr-1" aria-hidden="true"></i>
+        Sim, remover
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Alerta: Remoção do único manejo de dejeto -->
+<div *ngIf="showManejoSingleRemovalAlert" class="modal-overlay" (click)="fecharAlertaManejoUnico()">
+  <div class="modal-content modal-sm" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Atenção</h3>
+      <button type="button" class="btn-close" (click)="fecharAlertaManejoUnico()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <p>
+        Para remover o manejo de dejetos, insira outro no local dele.
+      </p>
+      <p class="text-warning">
+        <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+        Não é possível remover o único manejo exibido.
+      </p>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary" (click)="fecharAlertaManejoUnico()">
+        Entendi
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Confirmação: Voltar para Cálculos Registrados (Informações Gerais) -->
+<div class="br-scrim foco" *ngIf="showVoltarInformacoesConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="voltarInformacoesConfirmModalScrim">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Voltar para Cálculos Registrados</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="fecharConfirmVoltarInformacoes()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          Tem certeza que deseja retornar à tela de cálculos registrados? Os dados não salvos serão perdidos.
+        </p>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex align-items-center justify-content-between">
+      <button class="br-button secondary" type="button" data-dismiss="true" (click)="fecharConfirmVoltarInformacoes()">
+        Cancelar
+      </button>
+      <button class="br-button danger" type="button" (click)="confirmarVoltarInformacoes()">
+        <i class="fas fa-sign-out-alt mr-1" aria-hidden="true"></i>
+        Sim, voltar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal lateral: Distribuição por CAR (mock) -->
+<div class="side-modal-overlay" *ngIf="showCarDistribuicaoModal" (click)="fecharCarDistribuicao()">
+  <div class="side-modal" (click)="$event.stopPropagation()">
+    <div class="side-modal-header">
+      <div class="title">CAR da fazenda de origem</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar" (click)="fecharCarDistribuicao()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="side-modal-body">
+      <div class="form-group">
+        <label class="br-label">Informe o CAR da fazenda de origem para maior rastreabilidade dos dados.</label>
+      </div>
+
+      <div class="form-group">
+        <label class="br-label">Nome do lote</label>
+        <div class="br-input">
+          <input type="text" class="form-control" [value]="carDistribContext?.loteNome" disabled />
+        </div>
+      </div>
+
+      <div class="inline-fields">
+        <div class="form-group">
+          <label class="br-label">Categoria animal</label>
+          <div class="br-input">
+            <input type="text" class="form-control" [value]="carDistribContext?.categoriaLabel" disabled />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="br-label">Animais comprados</label>
+          <div class="br-input">
+            <input type="number" class="form-control" [value]="carDistribContext?.animaisComprados" disabled />
+          </div>
+        </div>
+      </div>
+
+      <div class="car-box">
+        <div class="car-item" *ngFor="let it of carDistribItens; let idx = index">
+          <div class="inline-fields">
+            <div class="form-group flex-1">
+             <label class="br-label">CAR de origem {{ idx + 1 }}</label>
+              <div class="br-input">
+                <input type="text" class="form-control" [(ngModel)]="it.carNumero" (input)="formatCarDistribuicao($event, it)" placeholder="Informe o CAR da fazenda de origem" />
+              </div>
+              <div class="feedback" *ngIf="it.status === 'valid'">
+                <i class="fas fa-check-circle" aria-hidden="true"></i>
+                Número do CAR validado com sucesso.
+              </div>
+              <div class="feedback warning" *ngIf="it.status === 'invalid'">
+                <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                CAR inválido ou não encontrado. Verifique.
+              </div>
+              <!-- Espaço reservado para a mensagem quando neutro, evitando desalinhamento -->
+              <div class="feedback placeholder" *ngIf="it.status === 'neutral'"></div>
+            </div>
+            <div class="form-group w-140">
+              <label class="br-label">Animais comp.</label>
+              <div class="br-input">
+                <input type="number" class="form-control" [(ngModel)]="it.animais" min="0" />
+              </div>
+            </div>
+            <button class="br-button danger small" type="button" aria-label="Excluir CAR" title="Excluir CAR"
+              (click)="removerCarItem(it.id)" [disabled]="carDistribItens.length <= 1">
+              <i class="fas fa-trash" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <button class="br-button link mt-2" type="button" (click)="adicionarCarItem()">
+          <i class="fas fa-plus" aria-hidden="true"></i> Adicionar outro CAR
+        </button>
+      </div>
+
+      <!-- sum-check removido conforme solicitação: não exibir totais de distribuição -->
+    </div>
+    <div class="side-modal-footer">
+      <button class="br-button secondary" type="button" (click)="fecharCarDistribuicao()">Cancelar</button>
+      <button class="br-button primary" type="button" (click)="abrirConfirmSalvarCarDistribuicao()" [disabled]="!somaIgualAoTotal">Confirmar</button>
+    </div>
+  </div>
+</div>
+<!-- Modal Confirmação Salvamento (CAR) -->
+<div class="br-scrim foco" *ngIf="showCarConfirmSaveModal" data-scrim="true" aria-modal="true" role="dialog" data-visible="true" id="carConfirmSaveModalScrim">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Confirmar salvamento</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true" (click)="fecharCarConfirmSaveModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          Deseja confirmar o salvamento da distribuição por CAR para o lote {{ carDistribContext?.loteNome }}?
+        </p>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex align-items-center justify-content-between">
+      <button class="br-button secondary" type="button" data-dismiss="true" (click)="fecharCarConfirmSaveModal()">Cancelar</button>
+      <button class="br-button danger" type="button" (click)="confirmarSalvarCars()">Confirmar</button>
+    </div>
+  </div>
+</div>

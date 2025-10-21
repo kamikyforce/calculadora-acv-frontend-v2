@@ -1,0 +1,335 @@
+<!-- Procuração Modal -->
+<div class="modal-overlay" *ngIf="isVisible" (click)="closeProcuracaoModal()">
+  <div class="modal-content modal-right modal-large" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 class="modal-title">Criar procuração</h2>
+      <button class="modal-close" type="button" (click)="closeProcuracaoModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <p class="modal-description">
+        Prezado, indique os dados solicitados do indivíduo que poderá gerenciar a ferramenta de cálculo de carbono em seu nome. Ao confirmar, você estará concordando com todos os <a href="https://www.car.gov.br/#/consultar" target="_blank" class="terms-link">Termos de Uso</a>.
+      </p>
+      
+      <form class="procuracao-form" (ngSubmit)="onSubmitProcuracao()">
+        <!-- CPF Input -->
+        <div class="form-group cpf-group">
+          <label for="cpf" class="br-label bold-label">CPF do procurador</label>
+          <div class="br-input has-icon">
+            <input
+              [type]="showCpf ? 'text' : 'password'"
+              id="cpf"
+              name="cpf"
+              [(ngModel)]="procuracaoData.cpf"
+              (input)="formatCPF($event)"
+              placeholder="000.000.000-00"
+              class="form-control"
+              maxlength="14"
+              required
+            />
+            <button 
+              type="button" 
+              class="br-button circle small toggle-visibility" 
+              (click)="toggleCpfVisibility()"
+              [attr.aria-label]="showCpf ? 'Ocultar CPF' : 'Mostrar CPF'">
+              <i [class]="showCpf ? 'fas fa-eye-slash' : 'fas fa-eye'" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- CPF Legend -->
+        <div class="legend-group">
+          <span class="field-legend">Digite somente números</span>
+        </div>
+
+        <!-- Terms Acceptance -->
+        <div class="form-group terms-group">
+          <div class="br-checkbox">
+            <input 
+              type="checkbox" 
+              id="termos" 
+              name="termos"
+              [(ngModel)]="procuracaoData.aceitoTermos"
+              required>
+            <label for="termos" class="br-label">
+              Li e aceito os termos de uso
+            </label>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="modal-actions">
+      <button class="br-button secondary" type="button" (click)="confirmCloseModal()">
+        Cancelar
+      </button>
+      <button 
+        class="br-button primary" 
+        type="button" 
+        (click)="confirmSubmitProcuracao()"
+        [disabled]="!isValidForm()">
+        Confirmar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- CPF Invalid Modal -->
+<div class="br-scrim foco" *ngIf="showCpfInvalidModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="cpfInvalidModalScrim">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">CPF inválido</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="closeCpfInvalidModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          O CPF informado não é válido. Por favor, verifique os dígitos e tente novamente.
+        </p>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex align-items-center justify-content-center">
+      <button type="button" class="br-button primary" (click)="closeCpfInvalidModal()">
+        <i class="fas fa-check mr-1" aria-hidden="true"></i>
+        Entendi
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Cancel Confirmation Modal -->
+<div class="br-scrim foco" *ngIf="showCancelConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="cancelConfirmModalScrim" style="z-index: 9999;">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Confirmar cancelamento</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="closeCancelConfirmModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          Tem certeza de que deseja cancelar? Todas as alterações não salvas serão perdidas.
+        </p>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex justify-content-end">
+      <button class="br-button secondary me-2" type="button" data-dismiss="true" (click)="closeCancelConfirmModal()">
+        Cancelar
+      </button>
+      <button class="br-button danger" type="button" (click)="confirmCancel()">
+        <i class="fas fa-times mr-1" aria-hidden="true"></i>
+        Cancelar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Save Confirmation Modal -->
+<div class="br-scrim foco" *ngIf="showSaveConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="saveConfirmModalScrim" style="z-index: 9999;">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Confirmar criação de procuração</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="closeSaveConfirmModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-check-circle text-success" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          Tem certeza de que deseja criar esta procuração?
+        </p>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex align-items-center justify-content-end">
+      <button class="br-button secondary me-2" type="button" data-dismiss="true" (click)="closeSaveConfirmModal()">
+        Cancelar
+      </button>
+      <button class="br-button primary" type="button" (click)="confirmSave()">
+        <i class="fas fa-check mr-1" aria-hidden="true"></i>
+        Confirmar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Required Fields Modal -->
+<div class="br-scrim foco" *ngIf="showRequiredFieldsModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="requiredFieldsModalScrim">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Campos obrigatórios</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="closeRequiredFieldsModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          Os seguintes campos são obrigatórios e devem ser preenchidos:
+        </p>
+        <ul class="required-fields-list">
+          <li *ngFor="let error of requiredFieldsErrors">{{ error }}</li>
+        </ul>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex align-items-center justify-content-center">
+      <button type="button" class="br-button primary" (click)="closeRequiredFieldsModal()">
+        <i class="fas fa-check mr-1" aria-hidden="true"></i>
+        Entendi
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- CPF Invalid Modal -->
+<div class="br-scrim foco" *ngIf="showCpfInvalidModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="cpfInvalidModalScrim">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">CPF inválido</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="closeCpfInvalidModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          O CPF informado não é válido. Por favor, verifique os dígitos e tente novamente.
+        </p>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex align-items-center justify-content-center">
+      <button type="button" class="br-button primary" (click)="closeCpfInvalidModal()">
+        <i class="fas fa-check mr-1" aria-hidden="true"></i>
+        Entendi
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Cancel Confirmation Modal -->
+<div class="br-scrim foco" *ngIf="showCancelConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="cancelConfirmModalScrim" style="z-index: 9999;">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Confirmar cancelamento</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="closeCancelConfirmModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          Tem certeza de que deseja cancelar? Todas as alterações não salvas serão perdidas.
+        </p>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex justify-content-end">
+      <button class="br-button secondary me-2" type="button" data-dismiss="true" (click)="closeCancelConfirmModal()">
+        Cancelar
+      </button>
+      <button class="br-button danger" type="button" (click)="confirmCancel()">
+        <i class="fas fa-times mr-1" aria-hidden="true"></i>
+        Cancelar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Save Confirmation Modal -->
+<div class="br-scrim foco" *ngIf="showSaveConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="saveConfirmModalScrim" style="z-index: 9999;">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Confirmar criação de procuração</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="closeSaveConfirmModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-check-circle text-success" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          Tem certeza de que deseja criar esta procuração?
+        </p>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex align-items-center justify-content-end">
+      <button class="br-button secondary me-2" type="button" data-dismiss="true" (click)="closeSaveConfirmModal()">
+        Cancelar
+      </button>
+      <button class="br-button primary" type="button" (click)="confirmSave()">
+        <i class="fas fa-check mr-1" aria-hidden="true"></i>
+        Confirmar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Required Fields Modal -->
+<div class="br-scrim foco" *ngIf="showRequiredFieldsModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="requiredFieldsModalScrim">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Campos obrigatórios</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="closeRequiredFieldsModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          Os seguintes campos são obrigatórios e devem ser preenchidos:
+        </p>
+        <ul class="required-fields-list">
+          <li *ngFor="let error of requiredFieldsErrors">{{ error }}</li>
+        </ul>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex align-items-center justify-content-center">
+      <button type="button" class="br-button primary" (click)="closeRequiredFieldsModal()">
+        <i class="fas fa-check mr-1" aria-hidden="true"></i>
+        Entendi
+      </button>
+    </div>
+  </div>
+</div>

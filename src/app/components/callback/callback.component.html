@@ -1,0 +1,41 @@
+<div class="callback-container">
+  <div class="callback-content">
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="loading-section">
+      <br-loading 
+        size="medium" 
+        message="Processando autenticação... Aguarde enquanto validamos suas credenciais do Gov.br">
+      </br-loading>
+    </div>
+
+    <!-- Success State -->
+    <div *ngIf="!isLoading && successMessage" class="success-section">
+      <div class="success-icon">
+        <i class="fas fa-check-circle"></i>
+      </div>
+      <h2 class="success-title">{{ successMessage }}</h2>
+      <p class="success-description">
+        Você será redirecionado automaticamente...
+      </p>
+      <br-loading 
+        size="small" 
+        [progress]="redirectProgress">
+      </br-loading>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="!isLoading && errorMessage" class="error-section">
+      <div class="error-icon">
+        <i class="fas fa-exclamation-triangle"></i>
+      </div>
+      <h2 class="error-title">Erro na Autenticação</h2>
+      <p class="error-description">{{ errorMessage }}</p>
+      <button 
+        class="br-button primary"
+        type="button"
+        (click)="retryLogin()">
+        Tentar Novamente
+      </button>
+    </div>
+  </div>
+</div>

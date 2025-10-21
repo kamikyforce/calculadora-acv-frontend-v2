@@ -1,0 +1,4 @@
+export enum TipoDado {
+  CONSOLIDADO_ANUAL = 'CONSOLIDADO_ANUAL',
+  MENSAL = 'MENSAL'
+}

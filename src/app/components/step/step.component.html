@@ -1,0 +1,11 @@
+<nav
+  class="br-step {{ dataOrientation }}"
+  [attr.data-initial]="dataInitial ? dataInitial : 1"
+  [attr.aria-orientation]="dataOrientation ? dataOrientation : null"
+  [attr.data-label]="dataLabel ? dataLabel : null"
+  [attr.data-scroll]="dataScroll ? dataScroll : null"
+  [attr.data-type]="dataType ? dataType : null"
+  role="none"
+>
+  <ng-content></ng-content>
+</nav>

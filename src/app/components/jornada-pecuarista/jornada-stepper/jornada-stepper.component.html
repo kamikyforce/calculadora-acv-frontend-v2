@@ -1,0 +1,39 @@
+<div class="jornada-stepper-container">
+  <div class="custom-step">
+    <div class="step-info">
+      <div class="step-list" role="list">
+        <!-- Linha contínua por trás das bolinhas -->
+        <div class="connector-track" aria-hidden="true"></div>
+        <div 
+          *ngFor="let fase of fases" 
+          [class]="getStepClass(fase)"
+          role="listitem"
+          [attr.aria-current]="fase.ativa ? 'step' : null"
+          (click)="onFaseClick(fase.numero)"
+          [style.cursor]="fase.numero <= faseAtual ? 'pointer' : 'not-allowed'"
+        >
+          <button 
+            type="button" 
+            class="step-button"
+            [disabled]="fase.numero > faseAtual"
+            [attr.aria-label]="'Fase ' + fase.numero + ': ' + fase.nome + (fase.concluida ? ' - Concluída' : '')"
+          >
+            <span class="step-icon">
+              <ng-container *ngIf="!fase.concluida; else checkIcon">{{ fase.numero }}</ng-container>
+              <ng-template #checkIcon>
+                <i class="fas fa-check" aria-hidden="true"></i>
+              </ng-template>
+            </span>
+            <span *ngIf="fase.concluida" class="check-badge" aria-hidden="true">
+              <i class="fas fa-check"></i>
+            </span>
+          </button>
+
+          <!-- Rótulo abaixo da bolinha -->
+          <div class="step-label">{{ fase.nome }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+</div>

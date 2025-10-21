@@ -1,0 +1,536 @@
+/* Base styles following Gov.br Design System */
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Rawline', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f8f9fa;
+}
+
+/* Header styles following Gov.br patterns */
+.br-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e9ecef;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.container-lg {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  min-height: 64px;
+}
+
+.header-logo .logo {
+  height: 40px !important;
+  width: auto !important;
+  max-height: none !important;
+}
+
+.header-functions {
+  display: flex;
+  gap: 12px;
+}
+
+/* Main content layout matching Figma proportions */
+.login-content {
+  display: flex;
+  flex: 1;
+  min-height: calc(100vh - 80px);
+}
+
+/* Left side - Illustration exactly as Figma */
+.illustration-side {
+  flex: 1;
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  position: relative;
+}
+
+.illustration-content {
+  position: relative;
+  width: 658px;
+  height: 434.06px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.main-character {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.character-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Right side - Form */
+.form-side {
+  flex: 1;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+}
+
+.form-container {
+  width: 100%;
+  max-width: 438px;
+}
+
+.form-content {
+  width: 100%;
+}
+
+.form-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.form-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  line-height: 1.3;
+}
+
+/* Form styles */
+.login-form {
+  width: 100%;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.br-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.br-input {
+  position: relative;
+  width: 100%;
+}
+
+.form-control {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #1f2937;
+  background-color: #ffffff;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+}
+
+.password-input {
+  position: relative;
+
+  .form-control {
+    padding-right: 48px;
+  }
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #1351B4;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: #0F4A9C;
+  }
+}
+
+.input-feedback {
+  margin-top: 4px;
+}
+
+.feedback-text {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.forgot-password {
+  text-align: right;
+  margin-bottom: 16px;
+}
+
+.forgot-link {
+  font-size: 14px;
+  color: #1351B4;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+    color: #0F4A9C;
+  }
+}
+
+.checkbox-group {
+  margin-bottom: 32px;
+}
+
+.br-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.br-checkbox-input {
+  width: 16px;
+  height: 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+}
+
+.br-checkbox-label {
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.login-button {
+  margin-bottom: 24px;
+}
+
+/* Divider */
+.form-divider {
+  margin: 24px 0;
+}
+
+.br-divider {
+  position: relative;
+  text-align: center;
+  border: none;
+  height: 1px;
+  background: transparent;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: #e5e7eb;
+    transform: translateY(-50%);
+  }
+}
+
+.divider-text {
+  background-color: #ffffff;
+  padding: 0 16px;
+  color: #6b7280;
+  font-size: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Gov.br button */
+.govbr-button {
+  margin-bottom: 24px;
+}
+
+.govbr-text {
+  margin-right: 8px;
+}
+
+.govbr-logo {
+  height: 20px;
+  width: auto;
+}
+
+/* First access link */
+.first-access {
+  text-align: center;
+}
+
+.first-access-link {
+  font-size: 14px;
+  color: #1351B4;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+    color: #0F4A9C;
+  }
+}
+
+/* High Contrast Mode */
+:host-context(.high-contrast) {
+  .login-container {
+    background: #000000;
+    color: #ffffff;
+  }
+
+  .br-header {
+    background: #000000;
+    border-bottom-color: #ffffff;
+  }
+
+  .form-side {
+    background: #000000;
+  }
+
+  .form-title {
+    color: #ffffff;
+  }
+
+  .br-label {
+    color: #ffffff;
+  }
+
+  .form-control {
+    background-color: #000000;
+    color: #ffffff;
+    border-color: #ffffff;
+
+    &:focus {
+      border-color: #ffff00;
+      box-shadow: 0 0 0 3px rgba(255, 255, 0, 0.3);
+    }
+  }
+
+  .feedback-text {
+    color: #ffffff;
+  }
+
+  .forgot-link,
+  .first-access-link {
+    color: #ffff00;
+
+    &:hover {
+      color: #ffffff;
+    }
+  }
+
+  .divider-text {
+    background-color: #000000;
+    color: #ffffff;
+  }
+
+  .br-divider::before {
+    background-color: #ffffff;
+  }
+}
+
+/* Responsive design - Tablets */
+@media (max-width: 1024px) {
+  .container-lg {
+    padding: 0 16px;
+  }
+  
+  .illustration-side,
+  .form-side {
+    padding: 32px;
+  }
+  
+  .illustration-content {
+    width: 500px;
+    height: 330px;
+  }
+}
+
+/* Responsive design - Mobile */
+@media (max-width: 768px) {
+  .login-content {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .illustration-side {
+    min-height: 250px;
+    padding: 24px 16px;
+    order: 1;
+  }
+
+  .illustration-content {
+    width: 100%;
+    max-width: 350px;
+    height: auto;
+    aspect-ratio: 658 / 434.06;
+  }
+
+  .form-side {
+    padding: 24px 16px;
+    order: 2;
+  }
+
+  .form-container {
+    max-width: 100%;
+  }
+
+  .form-title {
+    font-size: 20px;
+  }
+
+  .header-top {
+    padding: 12px 0;
+    min-height: 56px;
+  }
+
+  .header-logo .logo {
+    height: 32px !important;
+  }
+
+  .header-functions {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* Responsive design - Small Mobile */
+@media (max-width: 480px) {
+  .container-lg {
+    padding: 0 12px;
+  }
+  
+  .form-side,
+  .illustration-side {
+    padding: 16px 12px;
+  }
+  
+  .form-header {
+    margin-bottom: 24px;
+  }
+  
+  .form-title {
+    font-size: 18px;
+  }
+  
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  .form-control {
+    padding: 10px 14px;
+    font-size: 16px;
+  }
+  
+  .illustration-content {
+    max-width: 280px;
+  }
+  
+  .header-functions {
+    gap: 6px;
+  }
+}
+
+/* Responsive design - Extra Small Mobile */
+@media (max-width: 360px) {
+  .form-side,
+  .illustration-side {
+    padding: 12px 8px;
+  }
+  
+  .form-title {
+    font-size: 16px;
+  }
+  
+  .illustration-content {
+    max-width: 240px;
+  }
+  
+  .br-label {
+    font-size: 13px;
+  }
+  
+  .feedback-text {
+    font-size: 11px;
+  }
+  
+  .forgot-link,
+  .first-access-link {
+    font-size: 13px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .login-content {
+    flex-direction: row;
+  }
+  
+  .illustration-side {
+    order: 1;
+    flex: 0.6;
+    min-height: auto;
+  }
+  
+  .form-side {
+    order: 2;
+    flex: 1;
+  }
+  
+  .illustration-content {
+    max-width: 250px;
+    height: auto;
+  }
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+
+/* Button loading states */
+.br-button {
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    
+    .fa-spinner {
+      margin-right: 8px;
+    }
+  }
+}

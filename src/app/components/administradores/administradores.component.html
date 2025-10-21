@@ -1,0 +1,543 @@
+<div class="administradores-container">
+    <!-- Header following Gov.br Design System -->
+    <header class="br-header compact">
+        <div class="container-lg">
+            <div class="header-top">
+                <div class="header-logo">
+                    <img src="/assets/bndeslogo.png" alt="BNDES" class="logo" />
+                </div>
+
+                <div class="header-actions">
+                    <div class="header-functions">
+                        <button class="br-button secondary small" type="button" aria-label="Alto Contraste"
+                            [class.active]="isHighContrast" (click)="toggleHighContrast()">
+                            <i class="fas fa-adjust" aria-hidden="true"></i>
+                            <span class="button-text">Alto Contraste</span>
+                        </button>
+                        <button class="br-button secondary small" type="button" aria-label="VLibras"
+                            [class.active]="isVLibrasActive" (click)="toggleVLibras()">
+                            <i class="fas fa-universal-access" aria-hidden="true"></i>
+                            <span class="button-text">VLibras</span>
+                        </button>
+                        <button class="br-button secondary small" type="button" aria-label="Sair" (click)="logout()">
+                            <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                            <span class="button-text">Sair</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container-lg">
+            <!-- Page Header com Menu Hambúrguer -->
+            <div class="page-header">
+                <div class="page-title-section">
+                    <div class="title-with-menu">
+                        <!-- Hamburger Menu posicionado ao lado do título -->
+                        <app-hamburger-menu [menuItems]="menuItems" [isOpen]="isMenuOpen"
+                            (menuToggle)="onMenuToggle($event)" (itemClick)="onMenuItemClick($event)">
+                        </app-hamburger-menu>
+                        <div class="title-content">
+                            <h1 class="page-title">Administradores</h1>
+                            <p class="page-subtitle">Visualize e administre dados dos administradores</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search and Actions Section -->
+            <div class="search-actions-section">
+                <div class="search-input">
+                    <div class="br-input">
+                        <input type="text" placeholder="O que você procura?" class="form-control"
+                            [(ngModel)]="searchTerm" (input)="onSearch()">
+                        <button class="search-button" type="button">
+                            <i class="fas fa-search" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="search-actions">
+                    <button class="br-button primary" type="button" (click)="openCreateModal()">
+                        <i class="fas fa-plus" aria-hidden="true"></i>
+                        Criar usuário
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table Section -->
+            <div class="table-section">
+                <!-- Loading Overlay estilizado igual ao login -->
+                <div *ngIf="isLoading" class="loading-overlay">
+                    <br-loading [message]="loadingMessage" size="medium"></br-loading>
+                </div>
+                
+                <div class="table-responsive" *ngIf="!isLoading">
+                    <!-- Corrigir tabela para remover coluna Status -->
+                    <table class="br-table">
+                        <thead>
+                            <tr>
+                                <th>CPF</th>
+                                <th>Nome</th>
+                                <th>Data do cadastro</th>
+                                <th>Órgão</th>
+                                <th>Perfil</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let administrador of paginatedData">
+                                <td>{{ getFormattedCPF(administrador.cpf) }}</td>
+                                <td>{{ administrador.nome }}</td>
+                                <td>{{ administrador.dataCadastro | date:'dd/MM/yyyy' }}</td>
+                                <td>{{ administrador.orgao }}</td>
+                                <td>{{ getPerfilLabel(administrador.perfil) }}</td>
+                                <td>
+                                    <div class="br-switch small">
+                                        <input [id]="'switch-' + administrador.id" type="checkbox"
+                                            [checked]="administrador.ativo" (click)="toggleStatus(administrador.id); $event.preventDefault()" />
+                                        <label [for]="'switch-' + administrador.id">
+                                            <span class="switch-data" [attr.data-enabled]="'Ativo'" [attr.data-disabled]="'Inativo'">
+                                            </span>
+                                        </label>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="br-button secondary small" type="button"
+                                            (click)="editarAdministrador(administrador.id)" aria-label="Editar">
+                                            <i class="fas fa-edit" aria-hidden="true"></i>
+                                        </button>
+                                        <button class="br-button danger small" type="button"
+                                            (click)="confirmarDelecao(administrador)" aria-label="Excluir">
+                                            <i class="fas fa-trash" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            
+                <!-- Pagination -->
+            <div class="pagination-section" *ngIf="!isLoading">
+                <div class="pagination-info">
+                    <span>Exibir</span>
+                    <select [(ngModel)]="itemsPerPage" class="items-per-page"
+                        (change)="changeItemsPerPage(itemsPerPage)">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                    <span>{{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage,
+                        totalItems) }} de
+                        {{ totalItems }} itens</span>
+                </div>
+                <div class="pagination-controls">
+                    <span>Página</span>
+                    <select [(ngModel)]="currentPage" class="page-select" (change)="changePage(currentPage)">
+                        <option *ngFor="let page of [].constructor(totalPages); let i = index" [value]="i + 1">
+                            {{ i + 1 }}
+                        </option>
+                    </select>
+                    <div class="pagination-buttons">
+                        <button class="br-button secondary small" type="button"
+                            (click)="changePage(currentPage - 1)" [disabled]="currentPage === 1">
+                            <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                        </button>
+                        <button class="br-button secondary small" type="button"
+                            (click)="changePage(currentPage + 1)" [disabled]="currentPage === totalPages">
+                            <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Create Administrador Modal -->
+    <div class="modal-overlay" *ngIf="showCreateModal" (click)="$event.stopPropagation()">
+        <div class="modal-content modal-right" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+                <h2 class="modal-title">Criar administrador</h2>
+                <button class="modal-close" type="button" (click)="confirmCloseCreateModal()">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <p class="modal-description">Cadastre ou edite um administrador para utilização nos segmentos do sistema.</p>
+                <form class="administrador-form" (ngSubmit)="confirmSubmitCreate()" #createForm="ngForm">
+                    <!-- CPF -->
+                    <div class="form-group cpf-group">
+                        <label for="cpf" class="br-label bold-label">CPF</label>
+                        <div class="br-input cpf-input">
+                            <input type="text" id="cpf" name="cpf" [(ngModel)]="novoAdministrador.cpf"
+                                (input)="formatCPF($event)" placeholder="123.456.789-00" class="form-control"
+                                required maxlength="14" #cpfInput="ngModel" />
+                        </div>
+                        <div *ngIf="cpfInput.invalid && cpfInput.touched" class="error-message">
+                            CPF é obrigatório
+                        </div>
+                    </div>
+
+                    <!-- Nome -->
+                    <div class="form-group">
+                        <label for="nome" class="br-label bold-label">Nome</label>
+                        <div class="br-input">
+                            <input type="text" id="nome" name="nome" [(ngModel)]="novoAdministrador.nome"
+                                placeholder="João Silva" class="form-control" required #nomeInput="ngModel" />
+                        </div>
+                        <div *ngIf="nomeInput.invalid && nomeInput.touched" class="error-message">
+                            Nome é obrigatório
+                        </div>
+                    </div>
+
+                    <div class="form-group orgao-group">
+                        <label for="orgao" class="br-label bold-label">Órgão</label>
+                        <div class="br-input">
+                            <input type="text" id="orgao" name="orgao" [(ngModel)]="novoAdministrador.orgao"
+                                placeholder="Digite o órgão" class="form-control" required />
+                        </div>
+                    </div>
+
+                    <div class="form-group perfil-group">
+                        <label for="perfil" class="br-label bold-label">Perfil</label>
+                        <div class="br-select perfil-select">
+                            <select id="perfil" name="perfil" [(ngModel)]="novoAdministrador.perfil"
+                                class="form-control perfil-control" required (change)="onPerfilChange()">
+                                <option *ngFor="let perfil of perfisAdministrador" [value]="perfil.value">{{ perfil.label }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+
+
+                    <!-- Modal Actions -->
+                    <div class="modal-actions">
+                        <button type="button" class="br-button secondary" (click)="confirmCloseCreateModal()">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="br-button primary" [disabled]="createForm.invalid">
+                            Confirmar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Administrador Modal -->
+    <div class="modal-overlay" *ngIf="showEditModal" (click)="$event.stopPropagation()">
+        <div class="modal-content modal-right" (click)="$event.stopPropagation()">
+            <div class="modal-header">
+                <h2 class="modal-title">Editar administrador</h2>
+                <button class="modal-close" type="button" (click)="confirmCloseEditModal()">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <p class="modal-description">Edite os dados do administrador <strong>{{ selectedItem?.nome || 'N/A'
+                        }}</strong>.
+                </p>
+
+                <form class="administrador-form" (ngSubmit)="confirmSubmitEdit()" #editForm="ngForm">
+                    <!-- CPF Input -->
+                    <div class="form-group cpf-group">
+                        <label for="edit-cpf" class="br-label bold-label">CPF</label>
+                        <div class="br-input cpf-input">
+                            <input type="text" id="edit-cpf" name="cpf" [(ngModel)]="novoAdministrador.cpf"
+                                (input)="formatCPF($event)" placeholder="123.456.789-00" class="form-control" required
+                                maxlength="14" #editCpfInput="ngModel" readonly />
+                        </div>
+                        <div *ngIf="editCpfInput.invalid && editCpfInput.touched" class="error-message">
+                            CPF é obrigatório
+                        </div>
+                    </div>
+
+                    <!-- Nome Input -->
+                    <div class="form-group">
+                        <label for="edit-nome" class="br-label bold-label">Nome completo</label>
+                        <div class="br-input">
+                            <input type="text" id="edit-nome" name="nome" [(ngModel)]="novoAdministrador.nome"
+                                placeholder="Nome completo" class="form-control" required #editNomeInput="ngModel" readonly />
+                        </div>
+                        <div *ngIf="editNomeInput.invalid && editNomeInput.touched" class="error-message">
+                            Nome é obrigatório
+                        </div>
+                    </div>
+
+
+
+                    <div class="form-group orgao-group">
+                        <label for="edit-orgao" class="br-label bold-label">Órgão</label>
+                        <div class="br-input">
+                            <input type="text" id="edit-orgao" name="orgao" [(ngModel)]="novoAdministrador.orgao"
+                                placeholder="Digite o órgão" class="form-control" required />
+                        </div>
+                    </div>
+
+                    <div class="form-group perfil-group">
+                        <label for="edit-perfil" class="br-label bold-label">Perfil</label>
+                        <div class="br-select perfil-select">
+                            <select id="edit-perfil" name="perfil" [(ngModel)]="novoAdministrador.perfil"
+                                class="form-control perfil-control" required (change)="onPerfilChange()">
+                                <option *ngFor="let perfil of perfisAdministrador" [value]="perfil.value">{{ perfil.label }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+
+                    
+                    <!-- Modal Actions -->
+                    <div class="modal-actions">
+                        <button type="button" class="br-button secondary" (click)="confirmCloseEditModal()">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="br-button primary" [disabled]="editForm.invalid">
+                            Confirmar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal with Gov.br Design System -->
+    <div class="br-scrim foco" *ngIf="showDeleteModal" data-scrim="true" aria-modal="true" role="dialog"
+        data-visible="true" id="deleteModalScrim">
+        <div class="br-modal small" (click)="$event.stopPropagation()">
+            <div class="br-modal-header">
+                <div class="modal-title">Confirmar exclusão</div>
+                <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+                    (click)="closeDeleteModal()">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="br-modal-body">
+                <div class="delete-confirmation">
+                    <div class="delete-icon">
+                        <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+                    </div>
+                    <p class="delete-message">
+                        Tem certeza que deseja excluir o administrador <strong>{{ selectedItem?.nome || 'N/A'
+                            }}</strong> (CPF:
+                        {{ getFormattedCPF(selectedItem?.cpf || '') }})?
+                    </p>
+                    <div *ngIf="cpfVinculadoInfo && cpfVinculadoInfo.vinculado" class="vinculacao-warning">
+                        <p class="delete-warning text-warning-dark">
+                            <i class="fas fa-link mr-1" aria-hidden="true"></i>
+                            <strong>Atenção:</strong> Este CPF está vinculado às seguintes entidades:
+                        </p>
+                        <ul class="entidades-vinculadas">
+                            <li *ngFor="let entidade of cpfVinculadoInfo.entidades" class="text-warning-dark">
+                                <strong>{{ entidade.tipo }}:</strong> {{ entidade.nome }}
+                            </li>
+                        </ul>
+                        <p class="delete-warning text-danger">
+                            A exclusão deste administrador também removerá o registro nas entidades vinculadas. Esta ação não pode ser desfeita.
+                        </p>
+                    </div>
+                    <p *ngIf="!cpfVinculadoInfo || !cpfVinculadoInfo.vinculado" class="delete-warning text-warning-dark">
+                        Esta ação não pode ser desfeita e todos os dados relacionados serão perdidos.
+                    </p>
+                </div>
+            </div>
+
+            <div class="br-modal-footer d-flex align-items-center justify-content-between">
+                <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeDeleteModal()">
+                    Cancelar
+                </button>
+                <button type="button" class="br-button danger" (click)="confirmDelete()">
+                    <i class="fas fa-trash mr-1" aria-hidden="true"></i>
+                    Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Remove the loading component from the bottom -->
+    <!-- Gov.br Loading Component - REMOVED FROM HERE -->
+    <div class="form-group">
+        <label for="edit-orgao" class="br-label">Órgão</label>
+                        <div class="br-input">
+                            <input type="text" id="edit-orgao" name="orgao" [(ngModel)]="novoAdministrador.orgao"
+                                placeholder="Digite o órgão" class="form-control" required />
+                        </div>
+    </div>
+    <div class="br-scrim foco" *ngIf="showCancelConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+        data-visible="true" id="cancelConfirmModalScrim">
+        <div class="br-modal small" (click)="$event.stopPropagation()">
+            <div class="br-modal-header">
+                <div class="modal-title">Confirmar cancelamento</div>
+                <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+                    (click)="closeCancelConfirmModal()">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="br-modal-body">
+                <div class="delete-confirmation">
+                    <div class="delete-icon">
+                        <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+                    </div>
+                    <p class="delete-message">
+                        Tem certeza que deseja cancelar? Todas as informações preenchidas serão perdidas.
+                    </p>
+                </div>
+            </div>
+
+            <div class="br-modal-footer d-flex align-items-center justify-content-between">
+                <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeCancelConfirmModal()">
+                    Continuar editando
+                </button>
+                <button type="button" class="br-button danger" (click)="confirmCancel()">
+                    <i class="fas fa-times mr-1" aria-hidden="true"></i>
+                    Sim, cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="br-scrim foco" *ngIf="showSaveConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+        data-visible="true" id="saveConfirmModalScrim">
+        <div class="br-modal small" (click)="$event.stopPropagation()">
+            <div class="br-modal-header">
+                <div class="modal-title">Confirmar {{ isEditMode ? 'alteração' : 'criação' }}</div>
+                <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+                    (click)="closeSaveConfirmModal()">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="br-modal-body">
+                <div class="delete-confirmation">
+                    <div class="delete-icon">
+                        <i class="fas fa-check-circle text-success" aria-hidden="true"></i>
+                    </div>
+                    <p class="delete-message">
+                        Tem certeza que deseja {{ isEditMode ? 'salvar as alterações' : 'criar o administrador' }}?
+                    </p>
+                </div>
+            </div>
+
+            <div class="br-modal-footer d-flex align-items-center justify-content-between">
+                <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeSaveConfirmModal()">
+                    Cancelar
+                </button>
+                <button type="button" class="br-button primary" (click)="confirmSave()">
+                    <i class="fas fa-check mr-1" aria-hidden="true"></i>
+                    {{ isEditMode ? 'Confirmar' : 'Criar' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="br-scrim foco" *ngIf="showCpfExistsModal" data-scrim="true" aria-modal="true" role="dialog"
+        data-visible="true" id="cpfExistsModalScrim">
+        <div class="br-modal small" (click)="$event.stopPropagation()">
+            <div class="br-modal-header">
+                <div class="modal-title">CPF já cadastrado</div>
+                <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+                    (click)="closeCpfExistsModal()">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="br-modal-body">
+                <div class="delete-confirmation">
+                    <div class="delete-icon">
+                        <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+                    </div>
+                    <p class="delete-message">
+                        Este CPF já está cadastrado no sistema. Por favor, verifique os dados e tente novamente.
+                    </p>
+                </div>
+            </div>
+
+            <div class="br-modal-footer d-flex align-items-center justify-content-center">
+                <button type="button" class="br-button primary" (click)="closeCpfExistsModal()">
+                    <i class="fas fa-check mr-1" aria-hidden="true"></i>
+                    Entendi
+                </button>
+            </div>
+        </div>
+</div>
+
+<div class="br-scrim foco" *ngIf="showStatusConfirmModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="statusConfirmModalScrim">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Confirmar mudança de status</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="closeStatusConfirmModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-question-circle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          Tem certeza que deseja {{ pendingStatusChange?.newStatus ? 'ativar' : 'inativar' }} o administrador 
+          <strong>{{ selectedItem?.nome }}</strong>?
+        </p>
+      </div>
+    </div>
+
+    <div class="br-modal-footer d-flex align-items-center justify-content-between">
+      <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeStatusConfirmModal()">
+        Cancelar
+      </button>
+      <button type="button" class="br-button primary" (click)="confirmStatusChange()">
+        <i class="fas fa-check mr-1" aria-hidden="true"></i>
+        {{ pendingStatusChange?.newStatus ? 'Ativar' : 'Inativar' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de campos obrigatórios -->
+<div class="br-scrim foco" *ngIf="showRequiredFieldsModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="requiredFieldsModalScrim" (click)="closeRequiredFieldsModal()">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Campos obrigatórios</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="closeRequiredFieldsModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          Os seguintes campos são obrigatórios e devem ser preenchidos:
+        </p>
+        <ul class="required-fields-list">
+          <li *ngFor="let error of requiredFieldsErrors">{{ error }}</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="br-modal-footer justify-content-center">
+      <button type="button" class="br-button primary" (click)="closeRequiredFieldsModal()">
+        <i class="fas fa-check mr-1" aria-hidden="true"></i>
+        Entendi
+      </button>
+    </div>
+  </div>
+</div>
+
+    <!-- REMOVER o loading do final do arquivo -->
+    <!-- <br-loading *ngIf="isLoading" [message]="loadingMessage" size="medium"></br-loading> -->

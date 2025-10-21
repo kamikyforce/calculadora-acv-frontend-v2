@@ -1,0 +1,104 @@
+/* Loading Component following Gov.br Design System */
+.br-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  
+  &.medium {
+    padding: 32px;
+    
+    .loading-spinner {
+      .spinner-border {
+        width: 3rem;
+        height: 3rem;
+      }
+    }
+  }
+}
+
+.loading-spinner {
+  margin-bottom: 16px;
+  
+  .spinner-border {
+    width: 2rem;
+    height: 2rem;
+    border: 0.25em solid #e9ecef;
+    border-right-color: #1351B4;
+    border-radius: 50%;
+    animation: spinner-border 0.75s linear infinite;
+  }
+  
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+.loading-progress {
+  margin-bottom: 16px;
+  
+  .progress-circle {
+    position: relative;
+    display: inline-block;
+    
+    .progress-ring {
+      transform: rotate(-90deg);
+    }
+    
+    .progress-ring-circle {
+      transition: stroke-dashoffset 0.35s;
+      transform-origin: 50% 50%;
+    }
+    
+    .progress-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 12px;
+      font-weight: 600;
+      color: #1351B4;
+    }
+  }
+}
+
+.loading-message {
+  text-align: center;
+  
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: #6b7280;
+    line-height: 1.5;
+  }
+}
+
+@keyframes spinner-border {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .br-loading {
+    padding: 16px;
+    
+    &.medium {
+      padding: 24px;
+    }
+  }
+  
+  .loading-message p {
+    font-size: 13px;
+  }
+}

@@ -1,0 +1,22 @@
+/* You can add global styles to this file, and also import other style files */
+
+/* Accessibility button active states */
+.br-button.active {
+  background-color: #1351B4 !important;
+  color: white !important;
+  border-color: #1351B4 !important;
+}
+
+.br-button.secondary.active {
+  background-color: #1351B4 !important;
+  color: white !important;
+  border-color: #1351B4 !important;
+  
+  .button-text {
+    color: white !important;
+  }
+  
+  i {
+    color: white !important;
+  }
+}

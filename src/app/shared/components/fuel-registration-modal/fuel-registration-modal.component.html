@@ -1,0 +1,317 @@
+<div class="modal-overlay" *ngIf="isVisible">
+  <div class="modal-content modal-right" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 class="modal-title">{{ title }}</h2>
+      <button class="modal-close" type="button" (click)="confirmClose()" aria-label="Fechar modal">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <!-- Abas de Escopos -->
+    <div class="scope-tabs" *ngIf="enableScopes">
+      <div class="br-tab">
+        <nav class="tab-nav">
+          <ul>
+            <li class="tab-item" [class.is-active]="activeScope === 'escopo1'">
+              <button type="button" class="tab-btn" (click)="setActiveScope('escopo1')">Escopo 1</button>
+            </li>
+            <li class="tab-item" [class.is-active]="activeScope === 'escopo3-producao'">
+              <button type="button" class="tab-btn" (click)="setActiveScope('escopo3-producao')">Escopo 3</button>
+            </li>
+          </ul>
+          <div class="tab-slider" [ngStyle]="getSliderStyle()"></div>
+        </nav>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <form class="fuel-form" [formGroup]="fuelForm" (ngSubmit)="onConfirm()" id="fuelForm">
+        <!-- Informações -->
+        <div class="form-section">
+          <h3 class="section-title">Informações</h3>
+          <p class="section-description">Defina o nome e a unidade de medida do combustível</p>
+
+          <div class="form-row">
+            <!-- Nome do combustível -->
+            <div class="form-group">
+              <label class="br-label" for="nome-input">Nome do combustível</label>
+              <div class="br-input">
+                <input
+                  id="nome-input"
+                  type="text"
+                  formControlName="nome"
+                  placeholder="Ex.: Gasolina pura, Diesel, Etanol..."
+                  [class.error]="hasError('nome')"
+                  aria-describedby="nome-error"
+                />
+              </div>
+
+              <div class="validation-indicator" *ngIf="isValidatingName">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Verificando...</span>
+              </div>
+
+              <div id="nome-error" class="error-message" *ngIf="hasError('nome')">
+                {{ getErrorMessage('nome') }}
+              </div>
+
+              <div class="existing-fuel-warning" *ngIf="existingCombustivel && !isEditMode">
+                <div class="warning-header">
+                  <i class="fas fa-exclamation-triangle"></i>
+                  <span>Combustível já existe!</span>
+                </div>
+                <div class="existing-fuel-info">
+                  <p><strong>{{ existingCombustivel.nome }}</strong></p>
+                  <p>Unidade: {{ existingCombustivel.unidade }}</p>
+                  <p>
+                    CO₂: {{ existingCombustivel.fatorEmissaoCO2 }} |
+                    CH₄: {{ existingCombustivel.fatorEmissaoCH4 }} |
+                    N₂O: {{ existingCombustivel.fatorEmissaoN2O }}
+                  </p>
+                </div>
+                <div class="existing-fuel-actions">
+                  <button type="button" class="btn btn-secondary" (click)="useExistingData()">
+                    <i class="fas fa-download"></i> Usar dados existentes
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Unidade de medida -->
+            <div class="form-group">
+              <label class="br-label" for="unidade-select">Unidade de medida</label>
+              <div class="br-select">
+                <select
+                  id="unidade-select"
+                  formControlName="unidade"
+                  [class.error]="hasError('unidade')"
+                  aria-describedby="unidade-error"
+                >
+                  <option value="">Selecione a unidade</option>
+                  <option *ngFor="let unidade of unidadeOptions" [value]="unidade">{{ unidade }}</option>
+                </select>
+              </div>
+              <div id="unidade-error" class="error-message" *ngIf="hasError('unidade')">
+                {{ getErrorMessage('unidade') }}
+              </div>
+              <div class="invalid" *ngIf="fuelForm.get('unidade')?.errors?.['unidadeInvalida']">
+                Unidade inválida. Use uma das seguintes: {{ unidadeOptions.join(', ') }}.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fatores de emissão -->
+        <div class="form-section">
+          <h3 class="section-title">Fatores de emissão</h3>
+          <p class="section-description">Informe os fatores de emissão para cada tipo de gás de efeito estufa</p>
+
+          <div class="emission-factors-grid">
+            <div class="form-group">
+              <label class="br-label" for="co2-input">GWP 100 - Total</label>
+              <div class="br-input">
+                <input
+                  id="co2-input"
+                  type="text"
+                  formControlName="co2"
+                  placeholder="Ex.: 2.212"
+                  appDecimalFormat
+                  [decimals]="6"
+                  [forceDecimals]="true"
+                  [class.error]="hasError('co2')"
+                  aria-describedby="co2-error co2-helper"
+                />
+                <span class="input-suffix">tCO₂e/unid.</span>
+              </div>
+              <small id="co2-helper" class="form-helper">Dióxido de carbono</small>
+              <div id="co2-error" class="error-message" *ngIf="hasError('co2')">
+                {{ getErrorMessage('co2') }}
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="br-label" for="ch4-input">CO₂ - Fóssil</label>
+              <div class="br-input">
+                <input
+                  id="ch4-input"
+                  type="text"
+                  formControlName="ch4"
+                  placeholder="Ex.: 0.0008"
+                  appDecimalFormat
+                  [decimals]="6"
+                  [forceDecimals]="true"
+                  [class.error]="hasError('ch4')"
+                  aria-describedby="ch4-error ch4-helper"
+                />
+                <span class="input-suffix">tCO₂/unid.</span>
+              </div>
+              <small id="ch4-helper" class="form-helper">Metano</small>
+              <div id="ch4-error" class="error-message" *ngIf="hasError('ch4')">
+                {{ getErrorMessage('ch4') }}
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="br-label" for="n2o-input">Uso da terra (MUT)</label>
+              <div class="br-input">
+                <input
+                  id="n2o-input"
+                  type="text"
+                  formControlName="n2o"
+                  placeholder="Ex.: 0.00026"
+                  appDecimalFormat
+                  [decimals]="6"
+                  [forceDecimals]="true"
+                  [class.error]="hasError('n2o')"
+                  aria-describedby="n2o-error n2o-helper"
+                />
+                <span class="input-suffix">tCO₂e/unid.</span>
+              </div>
+              <small id="n2o-helper" class="form-helper">Óxido nitroso</small>
+              <div id="n2o-error" class="error-message" *ngIf="hasError('n2o')">
+                {{ getErrorMessage('n2o') }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mensagem informativa (texto exato do Figma) -->
+        <div class="info-section">
+          <div class="br-message info">
+            <div class="icon" aria-hidden="true"><i class="fas fa-info-circle"></i></div>
+            <div class="content" role="note">
+              <span class="message-title">Informação.</span>
+              <span>Nome e Unidade são compartilhados entre escopos; fatores de emissão são independentes por escopo.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botões -->
+        <div class="modal-footer">
+          <button type="button" class="br-button secondary" (click)="confirmClose()">Cancelar</button>
+          <button type="submit" class="br-button primary" [disabled]="fuelForm.invalid">
+            {{ isEditMode ? 'Atualizar' : 'Confirmar' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal: confirmar cancelamento -->
+    <div class="br-scrim foco" *ngIf="showCancelConfirmModal" data-scrim="true" aria-modal="true" role="dialog" data-visible="true" id="cancelConfirmModalScrim">
+      <div class="br-modal small" (click)="$event.stopPropagation()">
+        <div class="br-modal-header">
+          <div class="modal-title">Confirmar cancelamento</div>
+          <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true" (click)="closeCancelConfirmModal()">
+            <i class="fas fa-times" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="br-modal-body">
+          <div class="delete-confirmation">
+            <div class="delete-icon"><i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i></div>
+            <p class="delete-message">Tem certeza que deseja cancelar? Todas as informações preenchidas serão perdidas.</p>
+            <p class="delete-warning">Esta ação não pode ser desfeita.</p>
+          </div>
+        </div>
+        <div class="br-modal-footer d-flex align-items-center justify-content-between">
+          <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeCancelConfirmModal()">Continuar editando</button>
+          <button type="button" class="br-button danger" (click)="confirmCancel()">Sim, cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: nome duplicado -->
+    <div class="br-scrim foco" *ngIf="showDuplicateNameModal" data-scrim="true" aria-modal="true" role="dialog" data-visible="true" id="duplicateNameModalScrim">
+      <div class="br-modal small" (click)="$event.stopPropagation()">
+        <div class="br-modal-header">
+          <div class="modal-title">Nome duplicado</div>
+          <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true" (click)="closeDuplicateNameModal()">
+            <i class="fas fa-times" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="br-modal-body">
+          <div class="delete-confirmation">
+            <div class="delete-icon"><i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i></div>
+            <p class="delete-message">{{ duplicateNameMessage }}</p>
+            <p class="delete-warning">Deseja continuar mesmo assim?</p>
+          </div>
+        </div>
+        <div class="br-modal-footer d-flex align-items-center justify-content-between">
+          <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeDuplicateNameModal()">Cancelar</button>
+          <button type="button" class="br-button primary" (click)="confirmDuplicateName()">Continuar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: atualizar combustível existente -->
+    <div class="modal-overlay" *ngIf="showUpdateConfirmation">
+      <div class="confirmation-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3><i class="fas fa-question-circle"></i> Atualizar Combustível Existente?</h3>
+        </div>
+        <div class="modal-body">
+          <p>O combustível <strong>{{ existingCombustivel?.nome }}</strong> já existe.</p>
+          <p>Deseja atualizar os dados existentes com os novos valores?</p>
+
+          <div class="comparison-table">
+            <div class="comparison-row">
+              <div class="label">Dados Atuais:</div>
+              <div class="current-data">
+                CO₂: {{ existingCombustivel?.fatorEmissaoCO2 }} |
+                CH₄: {{ existingCombustivel?.fatorEmissaoCH4 }} |
+                N₂O: {{ existingCombustivel?.fatorEmissaoN2O }}
+              </div>
+            </div>
+            <div class="comparison-row">
+              <div class="label">Novos Dados:</div>
+              <div class="new-data">
+                CO₂: {{ fuelForm.get('co2')?.value }} |
+                CH₄: {{ fuelForm.get('ch4')?.value }} |
+                N₂O: {{ fuelForm.get('n2o')?.value }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="cancelUpdate()">
+            <i class="fas fa-times"></i> Cancelar
+          </button>
+          <button type="button" class="btn btn-primary" (click)="confirmUpdate()">
+            <i class="fas fa-check"></i> Atualizar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: confirmar cópia de dados -->
+    <div class="br-scrim foco" *ngIf="showCopyConfirmModal" data-scrim="true" aria-modal="true" role="dialog" data-visible="true" id="copyConfirmModalScrim">
+      <div class="br-modal small" (click)="$event.stopPropagation()">
+        <div class="br-modal-header">
+          <div class="modal-title">Confirmar cópia de dados</div>
+          <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true" (click)="closeCopyConfirmModal()">
+            <i class="fas fa-times" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <div class="br-modal-body">
+          <div class="delete-confirmation">
+            <div class="delete-icon"><i class="fas fa-copy text-primary" aria-hidden="true"></i></div>
+            <p class="delete-message">
+              Tem certeza que deseja copiar <strong>todos os dados do Escopo 1</strong> para o Escopo 3?
+            </p>
+            <p class="delete-warning">
+              Esta ação irá sobrescrever todos os dados atuais do Escopo 3 (fatores de emissão). Nome e unidade já são compartilhados automaticamente.
+            </p>
+          </div>
+        </div>
+
+        <div class="br-modal-footer d-flex align-items-center justify-content-between">
+          <button type="button" class="br-button secondary" data-dismiss="true" (click)="closeCopyConfirmModal()">Cancelar</button>
+          <button type="button" class="br-button primary" (click)="replicateAllDataScope1ToScope3()">
+            <i class="fas fa-copy mr-1" aria-hidden="true"></i>
+            Confirmar cópia
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

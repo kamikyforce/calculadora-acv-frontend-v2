@@ -1,0 +1,106 @@
+<div class="combustivel-table-container">
+  <!-- Botão Cadastrar Combustíveis -->
+  <div class="section-button">
+    <button class="br-button primary" type="button" (click)="onCreateCombustivel()">
+      <i class="fas fa-plus" aria-hidden="true"></i>
+      Cadastrar combustíveis
+    </button>
+  </div>
+
+  <!-- Tabela de Combustíveis -->
+  <div class="table-container">
+    <!-- Loading Overlay -->
+    <div *ngIf="isLoading" class="loading-overlay">
+      <br-loading [message]="loadingMessage" size="medium"></br-loading>
+    </div>
+
+    <div class="table-responsive" *ngIf="!isLoading">
+      <table class="energia-table">
+        <thead>
+          <tr>
+            <th class="table-header">Combustíveis</th>
+            <th class="table-header">Unidade</th>
+            <th class="table-header">CO₂</th>
+            <th class="table-header">CH₄</th>
+            <th class="table-header">N₂O</th>
+            <th class="table-header">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let combustivel of paginatedCombustiveis">
+            <td>{{ combustivel.nome }}</td>
+            <td>{{ combustivel.unidade }}</td>
+            <td>{{ combustivel.co2 | numberFormat:6:true }}</td>
+            <td>{{ combustivel.ch4 | numberFormat:6:true }}</td>
+            <td>{{ combustivel.n2o | numberFormat:6:true }}</td>
+            <td>
+              <div class="action-buttons">
+                <button class="edit-button" type="button" (click)="onEditCombustivel(combustivel)"
+                  aria-label="Editar">
+                  <i class="fas fa-edit" aria-hidden="true"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginação -->
+    <div class="pagination-section">
+      <div class="pagination-info">
+        <span>Exibir</span>
+        <select [(ngModel)]="itemsPerPage" class="items-per-page">
+          <option value="10">10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+        </select>
+        <span>{{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage, totalItems) }} de {{ totalItems }} itens</span>
+      </div>
+      <div class="pagination-controls">
+        <span>Página</span>
+        <select [(ngModel)]="currentPage" class="page-select">
+          <option *ngFor="let page of [].constructor(totalPages); let i = index" [value]="i + 1">
+            {{ i + 1 }}
+          </option>
+        </select>
+        <div class="pagination-buttons">
+          <button class="br-button secondary small" type="button"
+            (click)="changePage(currentPage - 1)" [disabled]="currentPage === 1">
+            <i class="fas fa-chevron-left" aria-hidden="true"></i>
+          </button>
+          <button class="br-button secondary small" type="button"
+            (click)="changePage(currentPage + 1)" [disabled]="currentPage === totalPages">
+            <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estado vazio -->
+  <div class="empty-state" *ngIf="filteredCombustiveis.length === 0 && !isLoading">
+    <div class="empty-state-content">
+      <h3 class="empty-state-title">
+        {{ searchTerm ? 'Nenhum combustível encontrado' : 'Nenhum combustível cadastrado' }}
+      </h3>
+      <p class="empty-state-description">
+        {{ searchTerm ? 'Tente ajustar os termos de busca.' : 'Adicione combustíveis para começar a gerenciar os fatores de emissão.' }}
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para criar/editar combustível -->
+<!-- Atualizar a chamada do modal -->
+<app-fuel-registration-modal
+  [isVisible]="showCreateModal"
+  [title]="isEditMode ? 'Editar Combustível' : 'Cadastro de Combustível'"
+  [isEditMode]="isEditMode"
+  [initialData]="currentCombustivel"
+  [currentCombustivelId]="currentCombustivel?.id"
+  [enableScopes]="true"
+  (close)="closeCreateModal()"
+  (confirm)="onFuelRegistrationConfirm($event)"
+  (updateExisting)="onUpdateExistingFuel($event)">
+</app-fuel-registration-modal>

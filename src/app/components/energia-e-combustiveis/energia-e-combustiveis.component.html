@@ -1,0 +1,329 @@
+<div class="energia-combustiveis-container">
+  <!-- Header -->
+  <header class="br-header compact">
+    <div class="container-lg">
+      <div class="header-top">
+        <div class="header-logo">
+          <img src="/assets/bndeslogo.png" alt="BNDES" class="logo" />
+        </div>
+
+        <div class="header-actions">
+          <div class="header-functions">
+            <button class="br-button secondary small" type="button" aria-label="Alto Contraste"
+              [class.active]="isHighContrast" (click)="toggleHighContrast()">
+              <i class="fas fa-adjust" aria-hidden="true"></i>
+              <span class="button-text">Alto Contraste</span>
+            </button>
+            <button class="br-button secondary small" type="button" aria-label="VLibras"
+              [class.active]="isVLibrasActive" (click)="toggleVLibras()">
+              <i class="fas fa-universal-access" aria-hidden="true"></i>
+              <span class="button-text">VLibras</span>
+            </button>
+            <button class="br-button secondary small" type="button" aria-label="Sair" (click)="logout()">
+              <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+              <span class="button-text">Sair</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container-lg">
+      <!-- Page Header com Menu Hambúrguer -->
+      <div class="page-header">
+        <div class="page-title-section">
+          <div class="title-with-menu">
+            <app-hamburger-menu
+              [menuItems]="menuItems"
+              [isOpen]="isMenuOpen"
+              (menuToggle)="onMenuToggle($event)"
+              (itemClick)="onMenuItemClick($event)">
+            </app-hamburger-menu>
+
+            <div class="title-content">
+              <h1 class="page-title">Energia e Combustíveis</h1>
+              <p class="page-subtitle">Administre fatores de consumo energético</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search Section -->
+      <div class="search-section">
+        <div class="search-input">
+          <div class="br-input">
+            <input
+              type="text"
+              placeholder="O que você procura?"
+              class="form-control"
+              [(ngModel)]="searchTerm"
+              (input)="onSearch()"
+              aria-label="Pesquisar itens" />
+            <button class="search-button" type="button" (click)="onSearch()" aria-label="Pesquisar">
+              <i class="fas fa-search" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <button class="br-button primary" type="button" (click)="openDataRegistrationModal()">
+            <i class="fas fa-plus" aria-hidden="true"></i>
+            Cadastrar Dados
+          </button>
+        </div>
+      </div>
+
+      <!-- TABELA: ENERGIA -->
+      <div class="table-container">
+        <div *ngIf="isLoadingEnergias" class="loading-overlay">
+          <br-loading [message]="loadingMessageEnergias" size="medium"></br-loading>
+        </div>
+
+        <div class="table-responsive" *ngIf="!isLoadingEnergias">
+          <table class="energia-table">
+            <thead>
+              <tr>
+                <th class="table-header">Tipo de emissão</th>
+                <th class="table-header">Fonte de emissão</th>
+                <th class="table-header">Ano</th>
+                <th class="table-header">Fator médio anual (tCO₂/MWh)</th>
+                <th class="table-header">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let energia of paginatedEnergias; trackBy: trackByEnergia">
+                <td>{{ energia.tipoEmissao }}</td>
+                <td>{{ energia.fonteEmissao }}</td>
+                <td>{{ energia.ano }}</td>
+                <td>
+                  <ng-container *ngIf="energia.dadosMensais && energia.dadosMensais.length === 12; else valorConsolidado">
+                    {{ energia.fatorMedioAnual | numberFormat:6:true }}
+                    <small class="monthly-indicator">(média mensal)</small>
+                  </ng-container>
+                  <ng-template #valorConsolidado>
+                    {{ energia.fatorMedioAnual | numberFormat:6:true }}
+                  </ng-template>
+                </td>
+                <td>
+                  <div class="action-buttons">
+                    <button
+                      class="edit-button"
+                      type="button"
+                      (click)="openEnergiaEditModal(energia)"
+                      aria-label="Editar">
+                      <i class="fas fa-edit" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINAÇÃO ENERGIA -->
+        <div class="pagination-section" *ngIf="totalItemsEnergias > 0">
+          <div class="pagination-info">
+            <span>Exibir</span>
+            <select
+              [(ngModel)]="itemsPerPageEnergias"
+              class="items-per-page"
+              (change)="changeItemsPerPageEnergias(itemsPerPageEnergias)"
+              aria-label="Itens por página">
+              <option [ngValue]="10">10</option>
+              <option [ngValue]="25">25</option>
+              <option [ngValue]="50">50</option>
+            </select>
+            <span>
+              {{ (currentPageEnergias - 1) * itemsPerPageEnergias + 1 }} -
+              {{ Math.min(currentPageEnergias * itemsPerPageEnergias, totalItemsEnergias) }}
+              de {{ totalItemsEnergias }} itens
+            </span>
+          </div>
+
+          <div class="pagination-controls">
+            <span>Página</span>
+            <select
+              [(ngModel)]="currentPageEnergias"
+              class="page-select"
+              (change)="changePageEnergias(currentPageEnergias)"
+              aria-label="Selecionar página">
+              <option *ngFor="let _ of [].constructor(totalPagesEnergias); let i = index" [ngValue]="i + 1">
+                {{ i + 1 }}
+              </option>
+            </select>
+
+            <div class="pagination-buttons">
+              <button
+                class="br-button secondary small"
+                type="button"
+                (click)="changePageEnergias(currentPageEnergias - 1)"
+                [disabled]="currentPageEnergias === 1"
+                aria-label="Página anterior">
+                <i class="fas fa-chevron-left" aria-hidden="true"></i>
+              </button>
+              <button
+                class="br-button secondary small"
+                type="button"
+                (click)="changePageEnergias(currentPageEnergias + 1)"
+                [disabled]="currentPageEnergias === totalPagesEnergias"
+                aria-label="Próxima página">
+                <i class="fas fa-chevron-right" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estado vazio -->
+      <div class="empty-state" *ngIf="filteredEnergiasData.length === 0 && !isLoadingEnergias">
+        <div class="empty-state-content">
+          <h3 class="empty-state-title">
+            {{ searchTerm ? 'Nenhuma energia encontrada' : 'Nenhuma energia cadastrada' }}
+          </h3>
+          <p class="empty-state-description">
+            {{ searchTerm ? 'Tente ajustar os termos de busca.' : 'Adicione dados de energia para começar a gerenciar os fatores de emissão.' }}
+          </p>
+        </div>
+      </div>
+
+      <!-- TABELA: COMBUSTÍVEIS -->
+      <app-combustivel-table [searchTerm]="searchTerm"></app-combustivel-table>
+    </div>
+  </main>
+
+  <!-- Modal criar/editar energia "empresa" -->
+  <div class="modal-overlay" *ngIf="showCreateModal" (click)="confirmClose()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">{{ isEditMode ? 'Editar' : 'Criar' }} Energia</h2>
+        <button class="modal-close" type="button" (click)="confirmClose()" aria-label="Fechar modal">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form class="energia-form" (ngSubmit)="saveEnergia()" #energiaForm="ngForm" novalidate>
+          <div class="form-row-top">
+            <div class="form-group">
+              <label class="br-label" for="tipoEnergia">Tipo de Energia</label>
+              <div class="br-select">
+                <select
+                  id="tipoEnergia"
+                  [(ngModel)]="currentEnergia.tipoEnergia"
+                  name="tipoEnergia"
+                  required>
+                  <option value="">Selecione</option>
+                  <option value="ELETRICA">Elétrica</option>
+                  <option value="TERMICA">Térmica</option>
+                  <option value="RENOVAVEL">Renovável</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="br-label" for="nomeFonte">Nome da Fonte</label>
+              <div class="br-input" [class.has-error]="duplicateNameFound">
+                <input 
+                  id="nomeFonte" 
+                  type="text" 
+                  [(ngModel)]="currentEnergia.nome" 
+                  name="nome" 
+                  required 
+                  (input)="onNameChange($event)"
+                  [class.is-invalid]="duplicateNameFound"
+                  placeholder="Digite o nome da fonte de energia" />
+                
+                <!-- 🔥 INDICADOR DE VALIDAÇÃO -->
+                <div class="validation-indicator" *ngIf="isValidatingName">
+                  <div class="spinner-border-sm"></div>
+                </div>
+                <div class="validation-indicator error" *ngIf="duplicateNameFound">
+                  <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                </div>
+              </div>
+              
+              <!-- 🔥 MENSAGEM DE ERRO DE VALIDAÇÃO -->
+              <div class="field-error" *ngIf="nameValidationError">
+                {{ nameValidationError }}
+              </div>
+              
+              <!-- 🔥 TEXTO DE AJUDA CORRIGIDO -->
+              <div class="help-text">
+                <i class="fas fa-info-circle" aria-hidden="true"></i>
+                Informe um nome único para identificar esta fonte de energia.
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="br-label" for="anoEnergia">Ano</label>
+              <div class="br-input">
+                <input id="anoEnergia" type="number" [(ngModel)]="currentEnergia.ano" name="ano" required />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row-bottom">
+            <div class="form-group">
+              <label class="br-label" for="fatorEnergia">Fator (tCO₂/MWh)</label>
+              <div class="br-input">
+                <input
+                  id="fatorEnergia"
+                  type="text"
+                  [(ngModel)]="currentEnergia.fator"
+                  name="fator"
+                  appDecimalFormat [decimals]="6" [forceDecimals]="true"
+                  required />
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="br-button secondary" (click)="confirmClose()">Cancelar</button>
+            <button 
+              type="submit" 
+              class="br-button primary" 
+              [disabled]="!energiaForm.valid || duplicateNameFound || isValidatingName">
+              {{ isEditMode ? 'Atualizar' : 'Criar' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🔥 MODAL DE CONFIRMAÇÃO DE CANCELAMENTO -->
+<div *ngIf="showCancelConfirmModal" class="br-scrim foco" (click)="$event.stopPropagation()">
+  <div class="br-modal small">
+    <div class="br-modal-header">
+      <div class="modal-title">Confirmar cancelamento</div>
+      <button type="button" (click)="closeCancelConfirmModal()">×</button>
+    </div>
+    <div class="br-modal-body">
+      <p>Tem certeza que deseja cancelar? Todas as informações preenchidas serão perdidas.</p>
+    </div>
+    <div class="br-modal-footer">
+      <button type="button" class="br-button secondary" (click)="closeCancelConfirmModal()">Continuar editando</button>
+      <button type="button" class="br-button primary" (click)="confirmCancel()">Sim, cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de cadastro/edição de dados (Energia ⇒ Escopo 2 apenas) -->
+<app-data-registration-modal
+  [isVisible]="showDataRegistrationModal"
+  title="Cadastro de dados"
+  [enableScopes]="true"
+  [isEnergyMode]="true"
+  [editMode]="!!editingEnergia"
+  [editData]="editingEnergia"
+  (close)="closeDataRegistrationModal()"
+  (confirm)="onDataRegistrationConfirm($event)"
+  (yearChanged)="onModalYearChanged($event)"
+  [existingYears]="existingYearsDetailed"
+  [hasInventory]="hasInventories"
+  [serverDuplicate]="modalServerDuplicate">   <!-- 👈 add isto -->
+</app-data-registration-modal>
+

@@ -1,0 +1,188 @@
+<!-- Modal lateral -->
+<div class="modal-overlay" *ngIf="isVisible">
+  <div class="modal-content modal-right" (click)="$event.stopPropagation()" [formGroup]="form">
+    <div class="modal-header">
+      <h2 class="modal-title">{{ headerTitle }}</h2>
+      <button class="modal-close" type="button" (click)="confirmClose()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- Tabs de escopo -->
+      <div *ngIf="enableScopes" class="br-tab scope-tabs">
+        <nav class="tab-nav">
+          <ul>
+            <!-- ENERGIA: trava em Escopo 2 -->
+            <li class="tab-item" [class.is-active]="activeScope==='escopo2'" *ngIf="isEnergyMode">
+              <button type="button" (click)="setActiveScope('escopo2')" disabled>Escopo 2</button>
+            </li>
+
+            <!-- COMBUSTÍVEL: permitir Escopo 1 e Escopo 3 -->
+            <li class="tab-item" [class.is-active]="activeScope==='escopo1'" *ngIf="!isEnergyMode">
+              <button type="button" (click)="setActiveScope('escopo1')">Escopo 1</button>
+            </li>
+            <li class="tab-item" [class.is-active]="activeScope==='escopo3'" *ngIf="!isEnergyMode">
+              <button type="button" (click)="setActiveScope('escopo3')">Escopo 3</button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+
+      <!-- Tipo de dado -->
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" formControlName="dataType" value="consolidated" />
+          <span class="radio-label">Dado consolidado do ano</span>
+        </label>
+        <label class="radio-option">
+          <input type="radio" formControlName="dataType" value="monthly" />
+          <span class="radio-label">Dado mensal</span>
+        </label>
+      </div>
+
+      <!-- Consolidado -->
+      <div *ngIf="form.value.dataType === 'consolidated'" class="consolidated-view">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Ano</label>
+            <!-- Consolidado -->
+            <input
+              type="text"
+              maxlength="4"
+              formControlName="year"
+              [readonly]="editMode"
+              [ngClass]="{
+                'is-invalid':
+                  yearInvalid('consolidated') ||
+                  isYearDuplicate(form.value.year, 'consolidated') ||
+                  (!editMode && serverDuplicate)
+              }"
+              placeholder="AAAA" />
+            <div class="field-error" *ngIf="yearInvalid('consolidated')">
+              Informe um ano válido (AAAA).
+            </div>
+            <div class="field-error" *ngIf="isYearDuplicate(form.value.year, 'consolidated')">
+              Ano já cadastrado para este tipo de dado!
+            </div>
+            <div class="field-error" *ngIf="!editMode && serverDuplicate">
+              Ano já cadastrado para este tipo de dado (validação no servidor)!
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Valor (média já calculada pelo governo)</label>
+            <div class="br-input">
+              <input
+                type="text"
+                formControlName="consolidatedValue"
+                placeholder="0,000000"
+                appDecimalFormat [decimals]="6" [forceDecimals]="true"
+              />
+              <span class="input-suffix">tCO₂/MWh</span>
+            </div>
+            <p class="help-text">💡 Insira manualmente a média anual oficial (6 casas decimais).</p>
+            <p class="audit-info" *ngIf="isAuditMode">
+              🔍 Versão {{ dataversao }} — edição registrada para auditoria
+            </p>
+          </div>
+        </div>
+
+        <div class="form-group" *ngIf="isAuditMode">
+          <label>Observações de auditoria</label>
+          <textarea formControlName="observacoesAuditoria" rows="2" placeholder="Descreva a alteração"></textarea>
+        </div>
+      </div>
+
+      <!-- Mensal -->
+      <div *ngIf="form.value.dataType === 'monthly'" class="monthly-view">
+        <div class="form-group">
+          <label>Ano</label>
+          <!-- Mensal -->
+          <input
+            type="text"
+            maxlength="4"
+            formControlName="year"
+            [readonly]="editMode"
+            [ngClass]="{
+              'is-invalid':
+                yearInvalid('monthly') ||
+                isYearDuplicate(form.value.year, 'monthly') ||
+                (!editMode && serverDuplicate)
+            }"
+            placeholder="AAAA" />
+          <div class="field-error" *ngIf="yearInvalid('monthly')">
+            Informe um ano válido (AAAA).
+          </div>
+          <div class="field-error" *ngIf="isYearDuplicate(form.value.year, 'monthly')">
+            Ano já cadastrado para este tipo de dado!
+          </div>
+          <div class="field-error" *ngIf="!editMode && serverDuplicate">
+            Ano já cadastrado para este tipo de dado (validação no servidor)!
+          </div>
+        </div>
+
+        <p class="instruction-text">Preencha manualmente os 12 meses (6 casas decimais).</p>
+
+        <h3 class="section-title">Valores mensais</h3>
+        <div class="monthly-grid" formArrayName="monthlyValues">
+          <div class="form-group" *ngFor="let month of months; let i = index" [formGroupName]="i">
+            <label>{{ month }}</label>
+            <div class="br-input">
+              <input
+                type="text"
+                formControlName="value"
+                placeholder="0,000000"
+                appDecimalFormat [decimals]="6" [forceDecimals]="true"
+              />
+              <span class="input-suffix">tCO₂/MWh</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="annual-average">
+          <h3 class="section-title">Média anual</h3>
+          <!-- Seção de média anual -->
+          <div class="average-section" *ngIf="form.value.dataType === 'monthly'">
+            <label>Média anual calculada:</label>
+            <div class="calculated-average">
+              <span class="average-value">{{ calculateAnnualAverageDisplay() }}</span>
+              <small class="average-info" *ngIf="hasAnyMonthFilled">
+                <!-- Linha 152 - CORRIGIDA -->
+                Baseada em {{ getFilledMonthsCount() }} mês(es) preenchido(s)
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" *ngIf="isAuditMode">
+          <label>Observações de auditoria</label>
+          <textarea formControlName="observacoesAuditoria" rows="2" placeholder="Descreva a alteração"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" (click)="confirmClose()">Cancelar</button>
+      <button type="button" (click)="onConfirm()" [disabled]="!canConfirm">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal confirmação cancelamento -->
+<div *ngIf="showCancelConfirmModal" class="br-scrim foco" (click)="$event.stopPropagation()">
+  <div class="br-modal small">
+    <div class="br-modal-header">
+      <div class="modal-title">Confirmar cancelamento</div>
+      <button type="button" (click)="closeCancelConfirmModal()">×</button>
+    </div>
+    <div class="br-modal-body">
+      <p>Tem certeza que deseja cancelar? Todas as informações preenchidas serão perdidas.</p>
+    </div>
+    <div class="br-modal-footer">
+      <button type="button" (click)="closeCancelConfirmModal()">Continuar editando</button>
+      <button type="button" (click)="confirmCancel()">Sim, cancelar</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,444 @@
+<div class="modal-overlay" *ngIf="isVisible">
+  <div class="modal-content modal-right" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 class="modal-title">{{ mode === 'create' ? 'Cadastro' : 'Edição' }} de fator de mudança no uso da terra</h2>
+      <button type="button" class="modal-close" (click)="openConfirm('cancel')" aria-label="Fechar modal">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <form [formGroup]="mutForm" novalidate>
+        <!-- Abas -->
+        <div class="scope-tabs">
+          <div class="br-tab">
+            <div class="tab-nav">
+              <ul>
+                <li class="tab-item" [class.is-active]="isEscopo1">
+                  <button type="button" (click)="onTabChange(EscopoEnum.ESCOPO1)">Escopo 1</button>
+                </li>
+                <li class="tab-item" [class.is-active]="isEscopo3">
+                  <button type="button" (click)="onTabChange(EscopoEnum.ESCOPO3)">Escopo 3</button>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content">
+          <!-- Informações básicas - comuns a todos -->
+          <!-- Informações básicas - Tipo de mudança -->
+          <h3>Informações básicas</h3>
+          <div class="form-group extend">
+            <label for="tipoMudanca" class="br-label">
+              Tipo de mudança
+              <span *ngIf="isTipoMudancaDisabled" class="disabled-indicator">(não editável)</span>
+            </label>
+            <div class="br-select" [class.disabled]="isTipoMudancaDisabled">
+              <select id="tipoMudanca" formControlName="tipoMudanca" [disabled]="isTipoMudancaDisabled">
+                <option value="">Selecione o tipo de mudança...</option>
+                <option *ngFor="let tipo of tipoMudancaOptions" [value]="tipo">
+                  {{ getTipoMudancaLabel(tipo) }}
+                </option>
+              </select>
+            </div>
+            <div class="error-message" *ngIf="isFieldInvalid('tipoMudanca')">{{ getFieldError('tipoMudanca') }}</div>
+            <div class="form-helper" *ngIf="isTipoMudancaDisabled">
+              O tipo de mudança não pode ser alterado durante a edição.
+            </div>
+          </div>
+
+          <!-- DADOS ESPECÍFICOS - SOLO -->
+          <ng-container *ngIf="currentTipoMudanca === TipoMudanca.SOLO">
+            <h3>Dados específicos</h3>
+            <div class="form-group tipo-fator-group extend">
+              <label for="tipoFator" class="br-label">Tipo de fator *</label>
+              <div class="br-select">
+                <select id="tipoFator" formControlName="tipoFator" (change)="onTipoFatorChange()">
+                  <option value="">Selecione o tipo de fator</option>
+                  <option value="USO_ANTERIOR_ATUAL">Fatores de emissão que variam com o uso anterior e atual</option>
+                  <option value="SOLO_USO_ANTERIOR_ATUAL">Fatores de emissão que variam com o tipo de solo e o uso anterior e atual</option>
+                </select>
+              </div>
+              <div class="error-message" *ngIf="isFieldInvalid('tipoFator')">{{ getFieldError('tipoFator') }}</div>
+            </div>
+          
+            <div class="form-row">
+              <div class="form-group">
+                <label for="usoAnterior" class="br-label">Uso anterior *</label>
+                <div class="br-select">
+                  <select id="usoAnterior" formControlName="usoAnterior" (change)="onUsoAnteriorChange()">
+                    <option value="">Selecione o uso anterior</option>
+                    <option *ngFor="let u of usoAnteriorOptions" [value]="u">{{ u }}</option>
+                  </select>
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('usoAnterior')">{{ getFieldError('usoAnterior') }}</div>
+              </div>
+          
+              <div class="form-group">
+                <label for="usoAtual" class="br-label">Uso atual *</label>
+                <div class="br-select">
+                  <select id="usoAtual" formControlName="usoAtual">
+                    <option value="">Selecione o uso atual</option>
+                    <option *ngFor="let u of usoAtualOptions" [value]="u">{{ u }}</option>
+                  </select>
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('usoAtual')">{{ getFieldError('usoAtual') }}</div>
+              </div>
+            </div>
+          
+            <ng-container *ngIf="isSoloTipoUsoAnteriorAtual">
+              <div class="form-row factor-reference">
+                <div class="form-group">
+                  <label class="br-label">Fator de emissão (tCO₂/ha.ano) *</label>
+                  <div class="br-input">
+                    <input type="text" inputmode="decimal" formControlName="fatorEmissao" 
+                           appDecimalFormat [decimals]="6" [forceDecimals]="false" placeholder="Ex: 1,76" />
+                  </div>
+                  <div class="error-message" *ngIf="isFieldInvalid('fatorEmissao')">{{ getFieldError('fatorEmissao') }}</div>
+                </div>
+          
+                <div class="form-group">
+                  <label class="br-label">Referência *</label>
+                  <div class="br-input">
+                    <input type="text" formControlName="referencia" placeholder="Ex: IPCC 2019" />
+                  </div>
+                  <div class="error-message" *ngIf="isFieldInvalid('referencia')">{{ getFieldError('referencia') }}</div>
+                </div>
+              </div>
+            </ng-container>
+          
+            <ng-container *ngIf="isSoloTipoSoloUso">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="br-label">Solo de baixa atividade argilosa (LAC) *</label>
+                  <div class="br-input">
+                    <input type="text" inputmode="decimal" formControlName="soloLAC" 
+                           appDecimalFormat [decimals]="6" [forceDecimals]="false" placeholder="Ex: 1,76" />
+                  </div>
+                  <div class="error-message" *ngIf="isFieldInvalid('soloLAC')">{{ getFieldError('soloLAC') }}</div>
+                </div>
+          
+                <div class="form-group">
+                  <label class="br-label">Solo arenoso *</label>
+                  <div class="br-input">
+                    <input type="text" inputmode="decimal" formControlName="soloArenoso" 
+                           appDecimalFormat [decimals]="6" [forceDecimals]="false" placeholder="Ex: 1,17" />
+                  </div>
+                  <div class="error-message" *ngIf="isFieldInvalid('soloArenoso')">{{ getFieldError('soloArenoso') }}</div>
+                </div>
+              </div>
+          
+              <div class="form-group">
+                <label class="br-label">Referência *</label>
+                <div class="br-input">
+                  <input type="text" formControlName="referencia" placeholder="Ex: IPCC 2019" />
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('referencia')">{{ getFieldError('referencia') }}</div>
+              </div>
+            </ng-container>
+          </ng-container>
+
+          <!-- DADOS ESPECÍFICOS - VEGETAÇÃO -->
+          <ng-container *ngIf="currentTipoMudanca === TipoMudanca.VEGETACAO">
+            <h3>Dados específicos</h3>
+
+            <!-- Categoria da fitofisionomia + Parâmetro lado a lado -->
+            <div class="form-row">
+              <div class="form-group">
+                <label id="categoriaFitofisionomiaLabel" class="br-label" for="categoriaFitofisionomiaInput">Categoria da fitofisionomia *</label>
+                <div class="br-select" multiple="multiple" aria-labelledby="categoriaFitofisionomiaLabel">
+                  <div class="br-input">
+                    <input id="categoriaFitofisionomiaInput" type="text" [value]="categoriaFitofisionomiaDisplay" 
+                           readonly placeholder="Selecione a categoria" />
+                    <button class="br-button" type="button" aria-label="Exibir lista" 
+                            [attr.aria-expanded]="isCategoriaOpen" (click)="isCategoriaOpen = !isCategoriaOpen" tabindex="-1">
+                      <i class="fas fa-angle-down" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                  <div class="br-list" tabindex="0" [style.display]="isCategoriaOpen ? 'block' : 'none'">
+                    <div class="br-item highlighted" data-all="data-all" tabindex="-1">
+                      <div class="br-checkbox">
+                        <input id="cat-all" name="cat-all" type="checkbox" #catAll (change)="toggleAllCategorias(catAll.checked)" />
+                        <label for="cat-all">Selecionar todos</label>
+                      </div>
+                    </div>
+                    <div class="br-item" tabindex="-1" *ngFor="let c of categoriaOptionsFiltered; let i = index">
+                      <div class="br-checkbox">
+                        <input [id]="'cat-' + i" [name]="'cat-' + i" type="checkbox" #catCb 
+                               [checked]="isCategoriaSelected(c.value)" (change)="toggleCategoria(c.value, catCb.checked)" />
+                        <label [for]="'cat-' + i">{{ c.label }}</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('categoriaFitofisionomia')">Selecione ao menos uma categoria.</div>
+              </div>
+
+              <div class="form-group">
+                <label class="br-label" for="parametro">Parâmetro *</label>
+                <div class="br-select">
+                  <select id="parametro" formControlName="parametro" (change)="onParametroChange($event)">
+                    <option value="">Informe o parâmetro</option>
+                    <option *ngFor="let p of parametroOptions" [value]="p">{{ p }}</option>
+                  </select>
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('parametro')">{{ getFieldError('parametro') }}</div>
+              </div>
+            </div>
+
+            <!-- Campos de biomas - todos visíveis conforme Figma -->
+            <div class="form-row">
+              <div class="form-group">
+                <label class="br-label">Amazônia</label>
+                <div class="br-input">
+                  <input type="text" inputmode="decimal" formControlName="amazonia" 
+                         appDecimalFormat [decimals]="6" [forceDecimals]="false" placeholder="Ex: 1,76" />
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('amazonia')">{{ getFieldError('amazonia') }}</div>
+              </div>
+              <div class="form-group">
+                <label class="br-label">Caatinga</label>
+                <div class="br-input">
+                  <input type="text" inputmode="decimal" formControlName="caatinga" 
+                         appDecimalFormat [decimals]="6" [forceDecimals]="false" placeholder="Ex: 0,37" />
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('caatinga')">{{ getFieldError('caatinga') }}</div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="br-label">Cerrado</label>
+                <div class="br-input">
+                  <input type="text" inputmode="decimal" formControlName="cerrado" 
+                         appDecimalFormat [decimals]="6" [forceDecimals]="false" placeholder="Ex: 0,73" />
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('cerrado')">{{ getFieldError('cerrado') }}</div>
+              </div>
+              <div class="form-group">
+                <label class="br-label">Mata Atlântica</label>
+                <div class="br-input">
+                  <input type="text" inputmode="decimal" formControlName="mataAtlantica" 
+                         appDecimalFormat [decimals]="6" [forceDecimals]="false" placeholder="Ex: 1,17" />
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('mataAtlantica')">{{ getFieldError('mataAtlantica') }}</div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="br-label">Pampa</label>
+                <div class="br-input">
+                  <input type="text" inputmode="decimal" formControlName="pampa" 
+                         appDecimalFormat [decimals]="6" [forceDecimals]="false" placeholder="Ex: 1,17" />
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('pampa')">{{ getFieldError('pampa') }}</div>
+              </div>
+              <div class="form-group">
+                <label class="br-label">Pantanal</label>
+                <div class="br-input">
+                  <input type="text" inputmode="decimal" formControlName="pantanal" 
+                         appDecimalFormat [decimals]="6" [forceDecimals]="false" placeholder="Ex: 0,73" />
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('pantanal')">{{ getFieldError('pantanal') }}</div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- DADOS ESPECÍFICOS - DESMATAMENTO -->
+          <ng-container *ngIf="currentTipoMudanca === TipoMudanca.DESMATAMENTO">
+            <h3>Dados específicos</h3>
+          
+            <!-- Bioma em largura total -->
+            <div class="form-group extend">
+              <label class="br-label" for="bioma">Bioma *</label>
+              <div class="br-select">
+                <select id="bioma" formControlName="bioma">
+                  <option value="">Selecione o bioma</option>
+                  <option *ngFor="let b of biomaOptions" [value]="b">{{ getBiomaLabel(b) }}</option>
+                </select>
+              </div>
+              <div class="error-message" *ngIf="isFieldInvalid('bioma')">Selecione um bioma para desmatamento.</div>
+            </div>
+
+            <!-- UF (esquerda) + Valor único (direita) LADO A LADO -->
+            <div class="form-row">
+              <!-- UF sempre visível; desativa quando 'Valor único' = true -->
+              <div class="form-group">
+                <label id="ufLabel" class="br-label" for="ufInput">UF (múltipla) *</label>
+                <div class="br-select"
+                     [class.disabled]="mutForm.get('valorUnico')?.value === 'true'"
+                     aria-labelledby="ufLabel">
+                  <div class="br-input">
+                    <input id="ufInput" type="text" [value]="ufDisplay" readonly placeholder="Selecione os itens" />
+                    <button class="br-button" type="button" aria-label="Exibir lista"
+                           [attr.aria-disabled]="mutForm.get('valorUnico')?.value === 'true'"
+                           [disabled]="mutForm.get('valorUnico')?.value === 'true'"
+                           [attr.aria-expanded]="isUfOpen"
+                           (click)="isUfOpen = !isUfOpen" tabindex="-1">
+                      <i class="fas fa-angle-down" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                  <div class="br-list" tabindex="0" [style.display]="isUfOpen ? 'block' : 'none'">
+                    <div class="br-item highlighted" data-all="data-all" tabindex="-1">
+                      <div class="br-checkbox">
+                        <input id="uf-all" name="uf-all" type="checkbox" #ufAll (change)="toggleAllUf(ufAll.checked)" />
+                        <label for="uf-all">Selecionar todos</label>
+                      </div>
+                    </div>
+                    <div class="br-item" tabindex="-1" *ngFor="let u of ufOptions; let i = index">
+                      <div class="br-checkbox">
+                        <input [id]="'uf-' + i" [name]="'uf-' + i" type="checkbox" #ufCb
+                               [checked]="isUfSelected(u)"
+                               (change)="toggleUf(u, ufCb.checked)" />
+                        <label [for]="'uf-' + i">{{ u }}</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('uf')">{{ getFieldError('uf') }}</div>
+              </div>
+
+              <div class="form-group">
+                <label class="br-label" for="valorUnico">Valor único *</label>
+                <div class="br-select">
+                  <select id="valorUnico" formControlName="valorUnico" (change)="onValorUnicoChange()">
+                    <option value="">Selecione o valor único</option>
+                    <option value="true">Sim</option>
+                    <option value="false">Não</option>
+                  </select>
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('valorUnico')">Selecione se o valor é único.</div>
+              </div>
+            </div>
+
+            <!-- Nome da fitofisionomia e Sigla -->
+            <div class="form-row">
+              <div class="form-group">
+                <label class="br-label" for="nomeFitofisionomia">Nome da fitofisionomia *</label>
+                <div class="br-input">
+                  <input id="nomeFitofisionomia" type="text" formControlName="nomeFitofisionomia" />
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('nomeFitofisionomia')">O nome da fitofisionomia é obrigatório.</div>
+              </div>
+
+              <div class="form-group">
+                <label class="br-label" for="sigla">Sigla *</label>
+                <div class="br-select">
+                  <select id="sigla" formControlName="sigla">
+                    <option value="">Selecione...</option>
+                    <option *ngFor="let s of siglaOptions" [value]="s">{{ s }}</option>
+                  </select>
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('sigla')">{{ getFieldError('sigla') }}</div>
+              </div>
+            </div>
+
+            <!-- Categoria e Estoque de carbono -->
+            <div class="form-row">
+              <div class="form-group">
+                <label class="br-label" for="categoria">Categoria *</label>
+                <div class="br-select">
+                  <select id="categoria" formControlName="categoria">
+                    <option value="">Selecione...</option>
+                    <option *ngFor="let c of categoriaOptions" [value]="c.value">{{ c.label }}</option>
+                  </select>
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('categoria')">{{ getFieldError('categoria') }}</div>
+              </div>
+
+              <div class="form-group">
+                <label class="br-label">Estoque de carbono (tCO₂e / ha) *</label>
+                <div class="br-input">
+                  <input type="text" inputmode="decimal" formControlName="estoqueCarbono" 
+                         appDecimalFormat [decimals]="6" [forceDecimals]="false" />
+                </div>
+                <div class="error-message" *ngIf="isFieldInvalid('estoqueCarbono')">{{ getFieldError('estoqueCarbono') }}</div>
+              </div>
+            </div>
+
+            <!-- Informação sobre comportamento do campo UF -->
+            <div class="br-message info" *ngIf="mutForm.get('valorUnico')?.value === 'true'">
+              <div class="icon">
+                <i class="fas fa-info-circle" aria-hidden="true"></i>
+              </div>
+              <div class="content">
+                <span class="message-title">Informação.</span>
+                Ao selecionar "Valor único", o campo de UF será desativado.
+              </div>
+            </div>
+          </ng-container>
+        </div>
+
+        <!-- Footer -->
+        <!-- Rodapé do modal principal -->
+        <div class="modal-footer">
+          <button type="button" class="br-button secondary" (click)="openConfirm('cancel')">
+            Cancelar
+          </button>
+          <button type="button" class="br-button primary" (click)="onSubmit()" [disabled]="isLoading">
+            Confirmar
+          </button>
+        </div>
+
+  <!-- Modal de confirmação para cancelamento -->
+  <div class="br-scrim foco" *ngIf="isConfirmOpen && confirmType === 'cancel'" data-scrim="true" aria-modal="true" role="dialog">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Confirmar cancelamento</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" (click)="closeConfirm()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Tem certeza de que deseja cancelar? Todas as alterações não salvas serão perdidas.
+          </p>
+        </div>
+      </div>
+      <div class="br-modal-footer d-flex justify-content-end">
+        <button class="br-button secondary me-2" type="button" (click)="closeConfirm()">
+          Voltar
+        </button>
+        <button class="br-button danger" type="button" (click)="handleConfirm()">
+          <i class="fas fa-times mr-1" aria-hidden="true"></i>
+          Descartar alterações
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmação para salvamento -->
+  <div class="br-scrim foco" *ngIf="showSaveConfirmModal" data-scrim="true" aria-modal="true" role="dialog">
+    <div class="br-modal small" (click)="$event.stopPropagation()">
+      <div class="br-modal-header">
+        <div class="modal-title">Confirmar {{ mode === 'create' ? 'cadastro' : 'alterações' }}</div>
+        <button class="br-button circle small" type="button" aria-label="Fechar modal" (click)="closeSaveConfirmModal()">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="br-modal-body">
+        <div class="delete-confirmation">
+          <div class="delete-icon">
+            <i class="fas fa-check-circle text-success" aria-hidden="true"></i>
+          </div>
+          <p class="delete-message">
+            Tem certeza de que deseja {{ mode === 'create' ? 'cadastrar este fator MUT' : 'salvar as alterações' }}?
+          </p>
+        </div>
+      </div>
+      <div class="br-modal-footer d-flex align-items-center justify-content-end">
+        <button class="br-button secondary" type="button" (click)="closeSaveConfirmModal()">
+          Cancelar
+        </button>
+        <button class="br-button primary" type="button" (click)="confirmSave()" [disabled]="isLoading">
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>

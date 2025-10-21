@@ -1,0 +1,147 @@
+<div class="jornada-container">
+  <!-- Header padrão Gov.br -->
+  <header class="br-header compact">
+    <div class="container-lg">
+      <div class="header-top">
+        <div class="header-logo">
+          <img src="/assets/bndeslogo.png" alt="BNDES" class="logo" />
+        </div>
+        <div class="header-actions">
+          <div class="header-functions">
+            <button class="br-button secondary small" type="button" aria-label="Alto Contraste" (click)="toggleHighContrast()">
+              <i class="fas fa-adjust" aria-hidden="true"></i>
+              <span class="button-text">Alto Contraste</span>
+            </button>
+            <button class="br-button secondary small" type="button" aria-label="VLibras" (click)="toggleVLibras()">
+              <i class="fas fa-universal-access" aria-hidden="true"></i>
+              <span class="button-text">VLibras</span>
+            </button>
+            <button class="br-button secondary small" type="button" aria-label="Sair" (click)="logout()">
+              <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+              <span class="button-text">Sair</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading -->
+  <br-loading 
+    *ngIf="isLoading" 
+    [message]="loadingMessage"
+  ></br-loading>
+
+  <!-- Conteúdo principal -->
+  <main class="jornada-main" *ngIf="!isLoading">
+    <!-- Título, subtítulo e menu -->
+    <div class="container-lg page-header">
+      <div class="title-with-menu">
+        <!-- Botão Voltar: apenas seta, sem contorno, antes do menu -->
+        <button type="button" class="back-arrow" aria-label="Voltar" (click)="voltarDashboard()">
+          <i class="fas fa-arrow-left" aria-hidden="true"></i>
+        </button>
+        <app-hamburger-menu
+          [menuItems]="menuItems"
+          [isOpen]="isMenuOpen"
+          (menuToggle)="onMenuToggle($event)"
+          (itemClick)="onMenuItemClick($event)">
+        </app-hamburger-menu>
+        <div class="title-content">
+          <h1 class="page-title">{{ getFaseTitulo(inventario.faseAtual) }}</h1>
+          <p class="page-subtitle" *ngIf="inventario.faseAtual === 1">Informe dados referentes ao seu rebanho quando ele estiver na fase 1 de rebanho</p>
+          <p class="page-subtitle" *ngIf="inventario.faseAtual !== 1">Fase {{ inventario.faseAtual }} · {{ getFaseTitulo(inventario.faseAtual) }} · {{ getAbaResumo() }}</p>
+        </div>
+      </div>
+    </div>
+    <!-- Removida duplicidade de títulos/subtítulos conforme especificação -->
+    <!-- Stepper -->
+    <section class="stepper-section">
+      <app-jornada-stepper
+        [faseAtual]="inventario.faseAtual"
+        [fasesConcluidas]="inventario.fasesConcluidas"
+        (faseChange)="onFaseChange($event)"
+      ></app-jornada-stepper>
+    </section>
+
+    <!-- Conteúdo da fase atual -->
+    <section class="fase-content">
+      <div class="fase-container">
+        <!-- Fase 1: Rebanho -->
+        <app-fase-rebanho
+          *ngIf="inventario.faseAtual === 1"
+          [inventarioId]="inventario.id || 0"
+          [readonly]="inventario.fasesConcluidas[1] || false"
+          [tipoRebanho]="inventario.tipoRebanho"
+          (faseConcluida)="onFaseConcluida(1)"
+        ></app-fase-rebanho>
+
+        <!-- Fase 2: Produção Agrícola -->
+        <div 
+          *ngIf="inventario.faseAtual === 2"
+          class="fase-placeholder"
+        >
+          <div class="placeholder-content">
+            <i class="fas fa-seedling fa-3x" aria-hidden="true"></i>
+            <h2>Produção Agrícola</h2>
+            <p>Esta fase será implementada em breve.</p>
+          </div>
+        </div>
+
+        <!-- Fase 3: MUT -->
+        <div 
+          *ngIf="inventario.faseAtual === 3"
+          class="fase-placeholder"
+        >
+          <div class="placeholder-content">
+            <i class="fas fa-map-marked-alt fa-3x" aria-hidden="true"></i>
+            <h2>Mudança de Uso da Terra</h2>
+            <p>Esta fase será implementada em breve.</p>
+          </div>
+        </div>
+
+        <!-- Fase 4: Energia -->
+        <div 
+          *ngIf="inventario.faseAtual === 4"
+          class="fase-placeholder"
+        >
+          <div class="placeholder-content">
+            <i class="fas fa-bolt fa-3x" aria-hidden="true"></i>
+            <h2>Energia</h2>
+            <p>Esta fase será implementada em breve.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Modal de Erro -->
+<div class="br-scrim foco" *ngIf="showErrorModal" data-scrim="true" aria-modal="true" role="dialog"
+  data-visible="true" id="errorModalScrim">
+  <div class="br-modal small" (click)="$event.stopPropagation()">
+    <div class="br-modal-header">
+      <div class="modal-title">Erro</div>
+      <button class="br-button circle small" type="button" aria-label="Fechar modal" data-dismiss="true"
+        (click)="closeErrorModal()">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="br-modal-body">
+      <div class="delete-confirmation">
+        <div class="delete-icon">
+          <i class="fas fa-exclamation-triangle text-warning-dark" aria-hidden="true"></i>
+        </div>
+        <p class="delete-message">
+          {{ errorMessage }}
+        </p>
+      </div>
+    </div>
+    <div class="br-modal-footer d-flex align-items-center justify-content-center">
+      <button type="button" class="br-button primary" (click)="closeErrorModal()">
+        <i class="fas fa-check mr-1" aria-hidden="true"></i>
+        Entendi
+      </button>
+    </div>
+  </div>
+</div>

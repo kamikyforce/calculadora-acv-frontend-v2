@@ -1,0 +1,87 @@
+<!-- Botão do Menu Hamburger -->
+<button 
+  class="hamburger-btn"
+  type="button"
+  [attr.aria-expanded]="isOpen"
+  aria-label="Abrir menu de navegação"
+  (click)="toggleMenu()"
+  [class.hidden]="isOpen">
+  <span class="hamburger-icon">
+    <span class="line"></span>
+    <span class="line"></span>
+    <span class="line"></span>
+  </span>
+</button>
+
+<!-- Overlay/Backdrop -->
+<div 
+  class="menu-overlay"
+  [class.active]="isOpen"
+  (click)="onBackdropClick()"
+  [attr.aria-hidden]="!isOpen">
+</div>
+
+<!-- Menu Lateral -->
+<nav 
+  class="side-menu"
+  [class.open]="isOpen"
+  [attr.aria-hidden]="!isOpen"
+  (keydown)="onKeyDown($event)"
+  role="navigation"
+  aria-label="Menu principal">
+  
+  <!-- Cabeçalho do Menu -->
+  <div class="menu-header">
+    <h2 class="menu-title">Menu de Navegação</h2>
+    <button 
+      class="close-btn"
+      type="button"
+      aria-label="Fechar menu"
+      (click)="closeMenu()">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+
+  <!-- Lista de Itens do Menu -->
+  <div class="menu-content">
+    <ul class="menu-list">
+      <li 
+        class="menu-item"
+        *ngFor="let item of menuItems"
+        [class.has-children]="item.children && item.children.length > 0"
+        [class.expanded]="isExpanded(item.id)">
+        
+        <a 
+          class="item-link"
+          [class.active]="item.active"
+          (click)="onItemClick(item)"
+          [attr.aria-expanded]="item.children && item.children.length > 0 ? isExpanded(item.id) : null">
+          <i [class]="item.icon" class="item-icon"></i>
+          <span class="item-text">{{ item.label }}</span>
+          <i 
+            *ngIf="item.children && item.children.length > 0"
+            class="fas fa-chevron-down expand-icon"
+            [class.rotated]="isExpanded(item.id)"></i>
+        </a>
+
+        <!-- Submenu -->
+        <ul 
+          *ngIf="item.children && item.children.length > 0"
+          class="submenu"
+          [class.show]="isExpanded(item.id)">
+          <li 
+            *ngFor="let child of item.children"
+            class="submenu-item">
+            <a 
+              class="item-link submenu-link"
+              [class.active]="child.active"
+              (click)="onItemClick(child)">
+              <i [class]="child.icon" class="item-icon"></i>
+              <span class="item-text">{{ child.label }}</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+</nav>

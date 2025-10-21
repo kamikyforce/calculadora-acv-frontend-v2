@@ -1,0 +1,580 @@
+// Container principal
+.fatores-container {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+// Header Gov.br
+.br-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e9ecef;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  z-index: 1000;
+  position: sticky;
+  top: 0;
+  
+  .container-lg {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    min-height: 64px;
+    position: relative;
+    gap: 16px;
+  }
+  
+  .header-logo {
+    order: 1;
+    flex-shrink: 0;
+    
+    .logo {
+      height: 40px !important;
+      width: auto !important;
+      max-height: none !important;
+    }
+  }
+  
+  .header-actions {
+    order: 2;
+    flex-shrink: 0;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    
+    .header-functions {
+      display: flex;
+      gap: 12px;
+    }
+  }
+}
+
+// Conteúdo principal
+.main-content {
+  flex: 1;
+  padding: 32px 0;
+  background-color: #f8f9fa;
+  min-height: calc(100vh - 80px);
+  
+  .container-lg {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 40px;
+  }
+}
+
+// Cabeçalho da página
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  gap: 24px;
+  
+  .page-title-section {
+    flex: 1;
+    
+    .title-with-menu {
+      display: flex;
+      align-items: flex-start;
+      gap: 24px;
+      
+      app-hamburger-menu {
+        margin-top: 2px;
+        margin-right: 8px;
+      }
+      
+      .title-content {
+        flex: 1;
+        
+        .page-title {
+          font-size: 32px;
+          font-weight: 700;
+          color: #333333;
+          margin: 0 0 8px 0;
+          line-height: 1.2;
+        }
+        
+        .page-subtitle {
+          font-size: 16px;
+          color: #666666;
+          margin: 0;
+          line-height: 1.5;
+        }
+      }
+    }
+  }
+}
+
+// Seção de cards - Grid com posicionamento específico
+.cards-section {
+  display: grid;
+  grid-template-columns: repeat(3, 384px);
+  grid-template-rows: repeat(2, 181.29px);
+  gap: 24px;
+  justify-content: center;
+  width: 1200px;
+  height: 386.58px;
+  margin: 0 auto;
+}
+
+// Linhas de cards
+.card-row {
+  display: contents;
+}
+
+// Cards de fatores com posicionamento específico
+.fator-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 24px;
+  gap: 8px;
+  width: 384px;
+  height: 181.29px;
+  background: #FFFFFF;
+  border: 1px solid #F2F2F2;
+  border-radius: 4px;
+  flex: none;
+  flex-grow: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  // Primeira linha (dentro do primeiro card-row)
+  .card-row:first-child & {
+    &:nth-child(1) { // REBANHO
+      grid-column: 1;
+      grid-row: 1;
+    }
+    
+    &:nth-child(2) { // PRODUÇÃO AGRÍCOLA
+      grid-column: 2;
+      grid-row: 1;
+    }
+    
+    &:nth-child(3) { // MUT
+      grid-column: 3;
+      grid-row: 1;
+    }
+  }
+  
+  // Segunda linha (dentro do segundo card-row)
+  .card-row:last-child & {
+    &:nth-child(1) { // ENERGIA E COMBUSTÍVEIS
+      grid-column: 1;
+      grid-row: 2;
+    }
+  }
+  
+  &:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
+  
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    
+    .icon-container {
+      width: 48px;
+      height: 48px;
+      background-color: #e3f2fd;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      
+      .card-icon {
+        font-size: 24px;
+        color: #1976d2;
+      }
+      
+      // Custom SVG icon styling
+      .custom-svg-icon {
+        width: 24px;
+        height: 24px;
+        filter: none; // The SVG already has the correct blue color (#1351B4)
+      }
+    }
+    
+    .card-title {
+      .title-text {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333333;
+        line-height: 1.3;
+        margin: 0;
+      }
+    }
+  }
+  
+  .card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 100%;
+    
+    .card-description {
+      font-size: 14px;
+      color: #666666;
+      line-height: 1.4;
+      margin: 0 0 16px 0;
+      flex: 1;
+    }
+    
+    .br-button {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+      padding: 8px 24px;
+      gap: 8px;
+      border: none;
+      font-size: 16px;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      box-sizing: border-box;
+      border-radius: 20px;
+      
+      &.small {
+        padding: 8px 12px;
+        font-size: 14px;
+        border-radius: 20px;
+      }
+      
+      &.primary {
+        background: #1351B4;
+        color: #ffffff;
+        border-radius: 20px;
+      
+        &:hover:not(:disabled) {
+          background-color: #0F4A9C;
+        }
+      }
+      
+      &.secondary {
+        background-color: #ffffff;
+        color: #374151;
+        border: 1px solid #d1d5db;
+        border-radius: 20px;
+      
+        &:hover {
+          background-color: #f9fafb;
+          border-color: #d1d5db;
+        }
+      
+        &.active {
+          background-color: #1351B4;
+          color: #ffffff;
+          border-color: #1351B4;
+      
+          &:hover {
+            background-color: #0F4A9C;
+            border-color: #0F4A9C;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* High Contrast Mode */
+:host-context(.high-contrast) {
+  .fatores-container {
+    color: #ffffff;
+  }
+
+  .br-header {
+    background: #000000;
+    border-bottom-color: #ffffff;
+  }
+
+  .main-content {
+    background: #000000;
+  }
+
+  .page-title {
+    color: #ffffff;
+  }
+
+  .page-subtitle {
+    color: #ffffff;
+  }
+
+  .fator-card {
+    background: #000000;
+    border-color: #ffffff;
+    color: #ffffff;
+
+    &:hover {
+      background: #333333;
+    }
+
+    .card-title .title-text {
+      color: #ffffff;
+    }
+
+    .card-description {
+      color: #ffffff;
+    }
+
+    .icon-container {
+      background-color: #333333;
+    }
+
+    .card-icon {
+      color: #ffff00;
+    }
+  }
+
+  .br-button.secondary {
+    background-color: #000000;
+    color: #ffffff;
+    border-color: #ffffff;
+
+    &:hover {
+      background-color: #333333;
+    }
+
+    &.active {
+      background-color: #ffff00;
+      color: #000000;
+      border-color: #ffff00;
+    }
+  }
+}
+
+// Responsividade
+@media (max-width: 1024px) {
+  .br-header {
+    .container-lg {
+      padding: 0 16px;
+    }
+    
+    .header-top {
+      padding: 12px 0;
+      min-height: 56px;
+      gap: 8px;
+    }
+    
+    .header-logo {
+      .logo {
+        height: 36px !important;
+      }
+    }
+    
+    .header-actions {
+      gap: 8px;
+      
+      .header-functions {
+        gap: 6px;
+        
+        .br-button {
+          padding: 8px 12px;
+          font-size: 14px;
+        }
+      }
+    }
+  }
+  
+  .main-content {
+    .container-lg {
+      padding: 0 24px;
+    }
+  }
+  
+  .cards-section {
+    width: 100%;
+    max-width: 1200px;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, auto);
+    gap: 20px;
+  }
+  
+  .fator-card {
+    width: 100%;
+    max-width: 384px;
+    
+    // Reorganizar para 2 colunas
+    .card-row:first-child & {
+      &:nth-child(1) { grid-column: 1; grid-row: 1; } // REBANHO
+      &:nth-child(2) { grid-column: 2; grid-row: 1; } // PRODUÇÃO AGRÍCOLA
+      &:nth-child(3) { grid-column: 1; grid-row: 2; } // MUT
+    }
+    
+    .card-row:last-child & {
+      &:nth-child(1) { grid-column: 2; grid-row: 2; } // ENERGIA E COMBUSTÍVEIS
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .br-header {
+    .container-lg {
+      padding: 0 12px;
+    }
+    
+    .header-top {
+      padding: 8px 0;
+      min-height: 48px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .header-logo {
+      .logo {
+        height: 32px !important;
+      }
+    }
+    
+    .header-actions {
+      gap: 6px;
+      
+      .header-functions {
+        flex-wrap: wrap;
+        gap: 4px;
+        
+        .button-text {
+          display: none;
+        }
+        
+        .br-button {
+          padding: 6px 8px;
+          font-size: 12px;
+          min-width: 32px;
+        }
+      }
+    }
+  }
+  
+  .main-content {
+    padding: 24px 0;
+    
+    .container-lg {
+      padding: 0 16px;
+    }
+  }
+  
+  .page-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+    
+    .title-with-menu {
+      gap: 16px;
+    }
+  }
+  
+  .cards-section {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, auto);
+    gap: 16px;
+    height: auto;
+    width: 100%;
+  }
+  
+  .fator-card {
+    width: 100%;
+    height: auto;
+    min-height: 181.29px;
+    
+    // Uma coluna - ordem vertical
+    .card-row:first-child & {
+      &:nth-child(1) { grid-column: 1; grid-row: 1; } // REBANHO
+      &:nth-child(2) { grid-column: 1; grid-row: 2; } // PRODUÇÃO AGRÍCOLA
+      &:nth-child(3) { grid-column: 1; grid-row: 3; } // MUT
+    }
+    
+    .card-row:last-child & {
+      &:nth-child(1) { grid-column: 1; grid-row: 4; } // ENERGIA E COMBUSTÍVEIS
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .br-header {
+    .container-lg {
+      padding: 0 8px;
+    }
+    
+    .header-top {
+      padding: 6px 0;
+      min-height: 44px;
+    }
+    
+    .header-logo {
+      .logo {
+        height: 28px !important;
+      }
+    }
+    
+    .header-actions {
+      .header-functions {
+        gap: 2px;
+        
+        .br-button {
+          padding: 4px 6px;
+          font-size: 11px;
+        }
+      }
+    }
+  }
+  
+  .main-content {
+    .container-lg {
+      padding: 0 12px;
+    }
+  }
+  
+  .page-header {
+    .title-content {
+      .page-title {
+        font-size: 28px;
+      }
+      
+      .page-subtitle {
+        font-size: 14px;
+      }
+    }
+  }
+  
+  .fator-card {
+    padding: 20px;
+    
+    .card-head {
+      gap: 12px;
+      
+      .icon-container {
+        width: 40px;
+        height: 40px;
+        
+        .card-icon {
+          font-size: 20px;
+        }
+      }
+      
+      .card-title .title-text {
+        font-size: 16px;
+      }
+    }
+    
+    .card-body {
+      .card-description {
+        font-size: 13px;
+      }
+    }
+  }
+}

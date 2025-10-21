@@ -1,0 +1,300 @@
+<div class="mut-container">
+  <!-- Header -->
+  <header class="br-header compact">
+    <div class="container-lg">
+      <div class="header-top">
+        <div class="header-logo">
+          <img src="/assets/bndeslogo.png" alt="BNDES" class="logo" />
+        </div>
+
+        <div class="header-actions">
+          <div class="header-functions">
+            <button class="br-button secondary small" type="button" aria-label="Alto Contraste"
+                    [class.active]="isHighContrast" (click)="toggleHighContrast()">
+              <i class="fas fa-adjust" aria-hidden="true"></i>
+              <span class="button-text">Alto Contraste</span>
+            </button>
+            <button class="br-button secondary small" type="button" aria-label="VLibras"
+                    [class.active]="isVLibrasActive" (click)="toggleVLibras()">
+              <i class="fas fa-universal-access" aria-hidden="true"></i>
+              <span class="button-text">VLibras</span>
+            </button>
+            <button class="br-button secondary small" type="button" aria-label="Sair" (click)="logout()">
+              <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+              <span class="button-text">Sair</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container-lg">
+      <!-- Título + menu -->
+      <div class="page-header">
+        <div class="page-title-section">
+          <div class="title-with-menu">
+            <app-hamburger-menu
+              [menuItems]="menuItems"
+              [isOpen]="isMenuOpen"
+              (menuToggle)="onMenuToggle($event)"
+              (itemClick)="onMenuItemClick($event)">
+            </app-hamburger-menu>
+            <div class="title-content">
+              <h1 class="page-title">MUT</h1>
+              <p class="page-subtitle">Ajuste fatores de mudanças no uso da terra</p>
+            </div>
+          </div>
+        </div>
+        <!-- Busca na mesma linha do título -->
+        <div class="search-inline">
+          <div class="search-input">
+            <div class="br-input">
+              <input
+                type="text"
+                placeholder="Buscar por nome, tipo, escopo, bioma..."
+                class="form-control"
+                [(ngModel)]="termoBusca"
+                (ngModelChange)="onSearchInput($event)"
+                aria-label="Pesquisar itens" />
+              <button class="search-button" type="button" (click)="onBuscar()" aria-label="Pesquisar">
+                <i class="fas fa-search" aria-hidden="true"></i>
+              </button>
+              <button class="clear-search-button" type="button" (click)="limparBusca()" *ngIf="termoBusca" aria-label="Limpar busca">
+                <i class="fas fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Busca + ações (busca removida daqui, mantendo apenas ações) -->
+      <div class="search-and-create">
+        <!-- bloco da barra de pesquisa permanece aqui -->
+        <div class="action-buttons">
+          <!-- botão movido para baixo da barra de pesquisa -->
+          <div class="create-btn-row">
+            <button class="br-button primary create-btn" type="button" (click)="onNovoFator()" *ngIf="canManage">
+              <i class="fas fa-plus" aria-hidden="true"></i>
+              <span class="button-text">Cadastrar fator MUT</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros rápidos comentados para simplificar interface
+      <div class="quick-filters" *ngIf="!mostrarFiltrosAvancados">
+        <div class="filter-chips">
+          <button class="filter-chip" 
+                  [class.active]="!filtros.tipoMudanca" 
+                  (click)="aplicarFiltroRapido('todos')">
+            Todos ({{ totalItems }})
+          </button>
+          <button class="filter-chip" 
+                  [class.active]="filtros.tipoMudanca === TipoMudanca.SOLO" 
+                  (click)="aplicarFiltroRapido('solo')">
+            Solo
+          </button>
+          <button class="filter-chip" 
+                  [class.active]="filtros.tipoMudanca === TipoMudanca.VEGETACAO" 
+                  (click)="aplicarFiltroRapido('vegetacao')">
+            Vegetação
+          </button>
+          <button class="filter-chip" 
+                  [class.active]="filtros.tipoMudanca === TipoMudanca.DESMATAMENTO" 
+                  (click)="aplicarFiltroRapido('desmatamento')">
+            Desmatamento
+          </button>
+        </div>
+      </div>
+      -->
+
+      <!-- Filtros avançados comentados para simplificar interface
+      <div class="filters-section filters-no-labels" 
+           *ngIf="mostrarFiltrosAvancados" 
+           role="group" 
+           aria-label="Filtros avançados">
+        <div class="filters-row">
+          <div class="br-select">
+            <label class="br-label sr-only" for="filtroEscopo">Filtrar por escopo</label>
+            <select id="filtroEscopo" [(ngModel)]="filtros.escopo" (change)="aplicarFiltros()" aria-label="Filtrar por escopo">
+              <option value="">Todos os escopos</option>
+              <option [ngValue]="EscopoEnum.ESCOPO1">Escopo 1</option>
+              <option [ngValue]="EscopoEnum.ESCOPO3">Escopo 3</option>
+            </select>
+          </div>
+        
+          <div class="br-select">
+            <label class="br-label sr-only" for="filtroTipoMudanca">Filtrar por tipo de mudança</label>
+            <select id="filtroTipoMudanca" [(ngModel)]="filtros.tipoMudanca" (change)="aplicarFiltros()" aria-label="Filtrar por tipo de mudança">
+              <option value="">Todos os tipos</option>
+              <option [ngValue]="TipoMudanca.SOLO">Solo</option>
+              <option [ngValue]="TipoMudanca.VEGETACAO">Vegetação</option>
+              <option [ngValue]="TipoMudanca.DESMATAMENTO">Desmatamento</option>
+            </select>
+          </div>
+        
+          <div class="br-select">
+            <label class="br-label sr-only" for="filtroBioma">Filtrar por bioma</label>
+            <select id="filtroBioma" [(ngModel)]="filtros.bioma" (change)="aplicarFiltros()" aria-label="Filtrar por bioma">
+              <option value="">Todos os biomas</option>
+              <option [ngValue]="Bioma.AMAZONIA">Amazônia</option>
+              <option [ngValue]="Bioma.CAATINGA">Caatinga</option>
+              <option [ngValue]="Bioma.CERRADO">Cerrado</option>
+              <option [ngValue]="Bioma.MATA_ATLANTICA">Mata Atlântica</option>
+              <option [ngValue]="Bioma.PAMPA">Pampa</option>
+              <option [ngValue]="Bioma.PANTANAL">Pantanal</option>
+            </select>
+          </div>
+          
+          <button class="br-button secondary small" type="button" (click)="onLimparFiltros()" aria-label="Limpar filtros">
+            <i class="fas fa-times" aria-hidden="true"></i>
+            Limpar
+          </button>
+        </div>
+      </div>
+      -->
+
+      <!-- Tabela -->
+      <div class="table-section">
+        <div *ngIf="isLoading" class="loading-overlay">
+          <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Carregando...</span>
+          </div>
+        </div>
+
+        <div class="table-responsive" *ngIf="!isLoading">
+          <table class="br-table mut-table">
+            <colgroup>
+              <col style="width: 18%" />
+              <col style="width: 12%" />
+              <col style="width: 50%" />
+              <col style="width: 15%" />
+              <col style="width: 5%" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="sortable-header" (click)="onSort('tipoMudanca')">
+                  Tipo de mudança
+                  <i class="fas" [ngClass]="getIconeOrdenacao('tipoMudanca')"></i>
+                </th>
+                <th class="sortable-header" (click)="onSort('escopo')">
+                  Escopo
+                  <i class="fas" [ngClass]="getIconeOrdenacao('escopo')"></i>
+                </th>
+                <th>Detalhes</th>
+                <th class="sortable-header" (click)="onSort('dataAtualizacao')">
+                  Última atualização
+                  <i class="fas" [ngClass]="getIconeOrdenacao('dataAtualizacao')"></i>
+                </th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let fator of paginatedData; trackBy: trackByFatorId">
+                <td>{{ getTipoMudancaLabel(fator.tipoMudanca) }}</td>
+                <td>{{ getEscopoLabel(fator.escopo) }}</td>
+                <td class="detail-cell">
+                  <div class="detail-content">
+                    <div class="detail-item" *ngFor="let detalhe of getResumoDetalhesList(fator)">
+                      <span class="detail-label">{{ detalhe.label }}</span>
+                      <span class="detail-value">{{ detalhe.value }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ formatarData(fator.dataAtualizacao) }}</td>
+                <td class="action-cell">
+                  <div class="action-buttons">
+                    <button class="edit-button" 
+                            (click)="onEditarFator(fator)"
+                            title="Editar fator"
+                            type="button">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Paginação -->
+        <div class="pagination-section" *ngIf="totalItems > 0">
+          <div class="pagination-info">
+            <span>Exibir</span>
+            <select
+              [(ngModel)]="itemsPerPage"
+              class="items-per-page"
+              (change)="changeItemsPerPage(itemsPerPage)"
+              aria-label="Itens por página">
+              <option [ngValue]="10">10</option>
+              <option [ngValue]="25">25</option>
+              <option [ngValue]="50">50</option>
+            </select>
+            <span>
+              {{ displayedFrom }} -
+              {{ displayedTo }}
+              de {{ totalItems }} itens
+            </span>
+          </div>
+          
+          <div class="pagination-controls">
+            <span>Página</span>
+            <select
+              [(ngModel)]="currentPage"
+              class="page-select"
+              (change)="changePage(currentPage)"
+              aria-label="Selecionar página">
+              <option *ngFor="let _ of [].constructor(totalPages); let i = index" [ngValue]="i + 1">
+                {{ i + 1 }}
+              </option>
+            </select>
+          
+            <div class="pagination-buttons">
+              <button
+                class="br-button secondary small"
+                type="button"
+                (click)="changePage(currentPage - 1)"
+                [disabled]="currentPage === 1"
+                aria-label="Página anterior">
+                <i class="fas fa-chevron-left" aria-hidden="true"></i>
+              </button>
+              <button
+                class="br-button secondary small"
+                type="button"
+                (click)="changePage(currentPage + 1)"
+                [disabled]="currentPage === totalPages"
+                aria-label="Próxima página">
+                <i class="fas fa-chevron-right" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- /Paginação -->
+      </div>
+
+      <!-- Modal de confirmação de exclusão - REMOVIDO -->
+
+      <!-- Modal host -->
+      <app-mut-modal
+        *ngIf="isModalVisible"
+        [isVisible]="isModalVisible"
+        [mode]="modalMode"
+        [fator]="fatorSelecionado"
+        (close)="onModalClose()"
+        (save)="onModalSave($event)">
+      </app-mut-modal>
+      <!-- Modal de importação comentado temporariamente
+      <app-mut-import-modal
+        [isVisible]="isImportModalVisible"
+        (close)="onImportModalClose()"
+        (imported)="onImportModalImported()">
+      </app-mut-import-modal>
+      -->
+    </div>
+  </main>
+</div>

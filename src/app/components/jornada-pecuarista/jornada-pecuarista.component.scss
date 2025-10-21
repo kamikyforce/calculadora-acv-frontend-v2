@@ -1,0 +1,419 @@
+.jornada-container {
+  min-height: 100vh;
+  background: #f8f9fa;
+
+  .jornada-header {
+    background: white;
+    border-bottom: 1px solid #e9ecef;
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    .header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+
+        .btn-voltar {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 1rem;
+          background: #f8f9fa;
+          border: 1px solid #dee2e6;
+          border-radius: 6px;
+          color: #495057;
+          text-decoration: none;
+          font-size: 0.875rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+
+          &:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+          }
+
+          i {
+            font-size: 0.75rem;
+          }
+        }
+
+        .jornada-info {
+          .jornada-titulo {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #212529;
+            margin: 0 0 0.5rem 0;
+          }
+
+          .jornada-meta {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+
+            .status-badge {
+              padding: 0.25rem 0.75rem;
+              border-radius: 20px;
+              font-size: 0.75rem;
+              font-weight: 600;
+              text-transform: uppercase;
+
+              &.status-rascunho {
+                background: #fff3cd;
+                color: #856404;
+                border: 1px solid #ffeaa7;
+              }
+
+              &.status-em_andamento {
+                background: #d1ecf1;
+                color: #0c5460;
+                border: 1px solid #bee5eb;
+              }
+
+              &.status-concluido {
+                background: #d4edda;
+                color: #155724;
+                border: 1px solid #c3e6cb;
+              }
+            }
+
+            .tipo-rebanho {
+              font-size: 0.875rem;
+              color: #6c757d;
+              font-weight: 500;
+            }
+          }
+        }
+      }
+
+      .header-right {
+        // Estilos para o menu hamburger já definidos no componente
+      }
+    }
+  }
+
+  .jornada-main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+
+    .stepper-section {
+      margin-bottom: 2rem;
+    }
+
+    .fase-content {
+      .fase-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+
+        .fase-placeholder {
+          padding: 4rem 2rem;
+          text-align: center;
+
+          .placeholder-content {
+            max-width: 400px;
+            margin: 0 auto;
+
+            i {
+              color: #6c757d;
+              margin-bottom: 1.5rem;
+            }
+
+            h2 {
+              font-size: 1.5rem;
+              font-weight: 600;
+              color: #212529;
+              margin-bottom: 1rem;
+            }
+
+            p {
+              color: #6c757d;
+              font-size: 1rem;
+              line-height: 1.5;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/* ====== Padrão GOVBR para cabeçalho e título (alinhado às outras telas) ====== */
+.br-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e9ecef;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  z-index: 1000;
+  position: sticky;
+  top: 0;
+}
+
+.container-lg {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  min-height: 64px;
+  position: relative;
+  gap: 16px;
+}
+
+.header-logo {
+  order: 1;
+  flex-shrink: 0;
+}
+
+.header-logo .logo {
+  height: 40px !important;
+  width: auto !important;
+  max-height: none !important;
+}
+
+.header-actions {
+  order: 2;
+  flex-shrink: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-functions {
+  display: flex;
+  gap: 12px;
+}
+
+/* Layout do título com menu hambúrguer */
+.title-with-menu {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+app-hamburger-menu {
+  margin-top: 2px;
+}
+
+/* Botão Voltar como seta, sem contorno */
+.back-arrow {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 17px; /* desloca 17px para baixo */
+  color: #1351b4;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.back-arrow i {
+  font-size: 20px;
+}
+
+.title-content { flex: 1; }
+
+/* Cabeçalho de página e título padrão */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin: 24px auto 32px;
+  gap: 24px;
+}
+
+.page-title-section { flex: 1; }
+
+.page-title {
+  background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  line-height: 1.2;
+}
+
+.page-subtitle {
+  font-size: 16px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.page-actions { flex-shrink: 0; }
+
+/* Meta inline abaixo do título */
+.jornada-meta-inline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.status-rascunho {
+  background: #fff3cd;
+  color: #856404;
+  border-color: #ffeaa7;
+}
+
+.status-em_andamento {
+  background: #d1ecf1;
+  color: #0c5460;
+  border-color: #bee5eb;
+}
+
+.status-concluido {
+  background: #d4edda;
+  color: #155724;
+  border-color: #c3e6cb;
+}
+
+.tipo-rebanho {
+  font-size: 14px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+/* Conteúdo principal com mesmo espaçamento das demais telas */
+.jornada-main {
+  flex: 1;
+  padding: 32px 0;
+  background: linear-gradient(180deg, #f7fafc 0%, #edf2f7 100%);
+  min-height: calc(100vh - 80px);
+}
+
+/* Container de fase com cartão branco */
+.fase-content .fase-container {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+/* Responsivo para título e meta */
+@media (max-width: 768px) {
+  .page-header { margin: 16px auto 24px; }
+  .page-title { font-size: 24px; }
+  .jornada-meta-inline { flex-wrap: wrap; gap: 8px; }
+  .jornada-main { padding: 16px 0; }
+}
+
+@media (max-width: 480px) {
+  .page-title { font-size: 20px; }
+  .page-subtitle { font-size: 14px; }
+}
+
+// Responsividade
+@media (max-width: 768px) {
+  .jornada-container {
+    .jornada-header {
+      .header-content {
+        padding: 0 1rem;
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+
+        .header-left {
+          width: 100%;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 1rem;
+
+          .jornada-info {
+            .jornada-titulo {
+              font-size: 1.25rem;
+            }
+
+            .jornada-meta {
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 0.5rem;
+            }
+          }
+        }
+
+        .header-right {
+          align-self: flex-end;
+        }
+      }
+    }
+
+    .jornada-main {
+      padding: 1rem;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .jornada-container {
+    .jornada-header {
+      .header-content {
+        .header-left {
+          .btn-voltar {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8rem;
+          }
+
+          .jornada-info {
+            .jornada-titulo {
+              font-size: 1.125rem;
+            }
+          }
+        }
+      }
+    }
+
+    .jornada-main {
+      .fase-content {
+        .fase-container {
+          .fase-placeholder {
+            padding: 2rem 1rem;
+
+            .placeholder-content {
+              i {
+                font-size: 2rem !important;
+              }
+
+              h2 {
+                font-size: 1.25rem;
+              }
+
+              p {
+                font-size: 0.875rem;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

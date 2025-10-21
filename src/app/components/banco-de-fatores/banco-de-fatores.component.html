@@ -1,0 +1,129 @@
+<div class="fatores-container">
+  <!-- Header following Gov.br Design System -->
+  <header class="br-header compact">
+    <div class="container-lg">
+      <div class="header-top">
+        <div class="header-logo">
+          <img src="/assets/bndeslogo.png" alt="BNDES" class="logo" />
+        </div>
+        
+        <div class="header-actions">
+          <div class="header-functions">
+            <button 
+              class="br-button secondary small" 
+              type="button" 
+              aria-label="Alto Contraste"
+              [class.active]="isHighContrast"
+              (click)="toggleHighContrast()">
+              <i class="fas fa-adjust" aria-hidden="true"></i>
+              <span class="button-text">Alto Contraste</span>
+            </button>
+            <button 
+              class="br-button secondary small" 
+              type="button" 
+              aria-label="VLibras"
+              [class.active]="isVLibrasActive"
+              (click)="toggleVLibras()">
+              <i class="fas fa-universal-access" aria-hidden="true"></i>
+              <span class="button-text">VLibras</span>
+            </button>
+            <button class="br-button secondary small" type="button" aria-label="Sair" (click)="logout()">
+              <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+              <span class="button-text">Sair</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container-lg">
+      <!-- Page Header com Menu Hambúrguer -->
+      <div class="page-header">
+        <div class="page-title-section">
+          <div class="title-with-menu">
+            <!-- Hamburger Menu posicionado ao lado do título -->
+            <app-hamburger-menu 
+              [menuItems]="menuItems"
+              [isOpen]="isMenuOpen"
+              (menuToggle)="onMenuToggle($event)"
+              (itemClick)="onMenuItemClick($event)">
+            </app-hamburger-menu>
+            <div class="title-content">
+              <h1 class="page-title">Banco de Fatores</h1>
+              <p class="page-subtitle">Selecione uma área para gerenciar e configurar os fatores do sistema</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cards Section -->
+      <div class="cards-section">
+        <!-- Primeira linha de cards (3 cards) -->
+        <div class="card-row">
+          <div class="fator-card" 
+               *ngFor="let card of fatorCards.slice(0, 3)" 
+               [ngClass]="getCardClasses(card)"
+               (click)="navigateToCard(card.id)">
+            <div class="card-head">
+              <div class="icon-container">
+                <!-- Custom cow SVG -->
+                <img *ngIf="card.icon === 'custom-cow'" 
+                     src="assets/icons/cow.svg" 
+                     class="card-icon custom-svg-icon" 
+                     alt="Cow icon">
+                <!-- Regular FontAwesome icons -->
+                <i *ngIf="card.icon !== 'custom-cow'" 
+                   [class]="card.icon + ' card-icon blue-icon'" 
+                   aria-hidden="true"></i>
+              </div>
+              <div class="card-title">
+                <span class="title-text">{{ card.title }}</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <p class="card-description">{{ card.description }}</p>
+              <button class="br-button primary small" type="button">
+                <span class="button-text">Acessar</span>
+                <i class="fas fa-arrow-right" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Segunda linha de cards (1 card) -->
+        <div class="card-row">
+          <div class="fator-card" 
+               *ngFor="let card of fatorCards.slice(3, 4)" 
+               [ngClass]="getCardClasses(card)"
+               (click)="navigateToCard(card.id)">
+            <div class="card-head">
+              <div class="icon-container">
+                <!-- Custom cow SVG -->
+                <img *ngIf="card.icon === 'custom-cow'" 
+                     src="assets/icons/cow.svg" 
+                     class="card-icon custom-svg-icon" 
+                     alt="Cow icon">
+                <!-- Regular FontAwesome icons -->
+                <i *ngIf="card.icon !== 'custom-cow'" 
+                   [class]="card.icon + ' card-icon blue-icon'" 
+                   aria-hidden="true"></i>
+              </div>
+              <div class="card-title">
+                <span class="title-text">{{ card.title }}</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <p class="card-description">{{ card.description }}</p>
+              <button class="br-button primary small" type="button">
+                <span class="button-text">Acessar</span>
+                <i class="fas fa-arrow-right" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
