@@ -653,7 +653,7 @@ export class MutModalComponent implements OnInit {
           this.setValidators('nomeFitofisionomia', [Validators.required]);
           this.setValidators('sigla', [Validators.required]);
           this.setValidators('categoria', [Validators.required]);
-          this.setValidators('estoqueCarbono', [this.dec6Validator()]);
+          this.setValidators('estoqueCarbono', [Validators.required, this.dec6Validator()]);
       }
   
       if (this.currentTipoMudanca === TipoMudanca.VEGETACAO) {
@@ -1147,13 +1147,13 @@ export class MutModalComponent implements OnInit {
               return actual.every((num, idx) => num === vals[idx]);
             });
             const isDuplicate = !!dup && (!currentId || dup.id !== currentId);
-            if (isDuplicate) {
-              this.duplicateExists = true;
-              this.notificationService.warning(`Registro de Vegetação já existe neste ${this.getEscopoLabel(escopo)}.`);
-              resolve(false);
-            } else {
-              resolve(true);
-            }
+          if (isDuplicate) {
+            this.duplicateExists = true;
+            this.notificationService.warning(this.buildVegetacaoDuplicateMessage());
+            resolve(false);
+          } else {
+            resolve(true);
+          }
           },
           error: () => resolve(true)
         });
@@ -1241,11 +1241,19 @@ export class MutModalComponent implements OnInit {
     // Check for DESMATAMENTO Bioma+UFs constraint error first
     if (
       this.currentTipoMudanca === TipoMudanca.DESMATAMENTO &&
-      status === 400 &&
-      codigo === 'ERRO_VALIDACAO' &&
       (/ux_desm_ufs_escopo|ufs_hash/i.test(mensagem))
     ) {
       const msg = this.buildDesmatBiomaUfsDuplicateMessage();
+      this.notificationService.warning(msg);
+      return;
+    }
+
+    // NOVO: Vegetação — índice único categoria+parâmetro por escopo
+    if (
+      this.currentTipoMudanca === TipoMudanca.VEGETACAO &&
+      (/ux_veg_categoria_param_escopo/i.test(mensagem))
+    ) {
+      const msg = this.buildVegetacaoDuplicateMessage();
       this.notificationService.warning(msg);
       return;
     }
@@ -1314,6 +1322,12 @@ export class MutModalComponent implements OnInit {
       // ✅ NOVO: para DESMATAMENTO, tenta atualizar registro existente automaticamente
       if (this.currentTipoMudanca === TipoMudanca.DESMATAMENTO && operation !== 'update-existing') {
         this.tryUpdateExistingDesmatOnDuplicate();
+        return;
+      }
+      // ✅ Vegetação: usar mensagem estruturada
+      if (this.currentTipoMudanca === TipoMudanca.VEGETACAO) {
+        const msg = this.buildVegetacaoDuplicateMessage();
+        this.notificationService.warning(msg);
         return;
       }
       const msg = this.buildDuplicateMessage();
@@ -1693,7 +1707,47 @@ export class MutModalComponent implements OnInit {
       `- UFs: ${ufsDisplay}`,
       '',
       'Ação sugerida: edite o registro existente ou altere os valores.'
-    ].join('\n');
+    ]
+    .join('\n');
+  }
+
+  // NOVO: Toast estruturado para VEGETAÇÃO (Categoria + Parâmetro + valores por Bioma)
+  private buildVegetacaoDuplicateMessage(): string {
+    const data = this.mutForm.getRawValue();
+    const escopoLabel = this.getEscopoLabel(data.escopo);
+    const parametro = String(data.parametro || '').trim();
+    const categorias = this.categoriasSelecionadas;
+    const categoriasDisplay = (categorias && categorias.length) ? categorias.join(', ') : '—';
+
+    const v = this.vegetScope[this.activeTab];
+    const toLine = (rotulo: string, v: any) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? `  • ${rotulo}: ${n}` : undefined;
+    };
+
+    const lines: string[] = [
+      `Registro de Vegetação já existe neste escopo (${escopoLabel}).`,
+      `Chave duplicada: Categoria(s) da fitofisionomia + Parâmetro.`,
+      `- Parâmetro: ${parametro || '—'}`,
+      `- Categorias: ${categoriasDisplay}`,
+    ];
+
+    const valores: (string | undefined)[] = [
+      toLine('Amazônia', v?.amazonia),
+      toLine('Caatinga', v?.caatinga),
+      toLine('Cerrado', v?.cerrado),
+      toLine('Mata Atlântica', v?.mataAtlantica),
+      toLine('Pampa', v?.pampa),
+      toLine('Pantanal', v?.pantanal),
+    ].filter(Boolean);
+
+    if (valores.length) {
+      lines.push('- Valores por Bioma:');
+      lines.push(...(valores as string[]));
+    }
+
+    lines.push('', 'Ação sugerida: edite o registro existente ou ajuste os valores.');
+    return lines.join('\n');
   }
 
   // Toast estruturado para RN008/Duplicidade por tipo

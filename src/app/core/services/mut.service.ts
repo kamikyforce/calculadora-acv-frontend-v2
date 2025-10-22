@@ -366,7 +366,6 @@ export class MutService {
 
   // Class: MutService
   // Method: handleError
-  
   private handleError(error: HttpErrorResponse): Observable<never> {
     console.error('Erro no serviço MUT:', error);
   
@@ -381,13 +380,25 @@ export class MutService {
   
     // Map DB unique constraint on DESMATAMENTO UFs to a clear message (early exit)
     const rawMsg = String(error?.error?.mensagem || error?.message || '');
-    if (rawMsg.includes('ux_desm_ufs_escopo') || rawMsg.includes('ufs_hash')) {
-      const conflictError = new Error('Já existe registro de Desmatamento com este Bioma e UFs neste escopo.');
+    if (rawMsg.includes('ux_desm_ufs_escopo') || rawMsg.includes('ufs_hash') || rawMsg.includes('ux_desm_valor_unico_escopo')) {
+      const conflictError = new Error('Já existe registro de Desmatamento com este Bioma e UFs/Valor Único neste escopo.');
       (conflictError as any).originalError = error;
       (conflictError as any).status = error.status;
       (conflictError as any).error = error.error;
       (conflictError as any).codigo = (error as any).codigo || 'RN008_DUPLICIDADE';
-      (conflictError as any).mensagem = 'Já existe registro de Desmatamento com este Bioma e UFs neste escopo.';
+      (conflictError as any).mensagem = 'Já existe registro de Desmatamento com este Bioma e UFs/Valor Único neste escopo.';
+      (conflictError as any).userMessage = (conflictError as any).mensagem;
+      return throwError(() => conflictError);
+    }
+
+    // NOVO: Mapear índice único de Vegetação (categoria+parâmetro+escopo)
+    if (rawMsg.includes('ux_veg_categoria_param_escopo')) {
+      const conflictError = new Error('Já existe registro de Vegetação para estas categorias e parâmetro neste escopo.');
+      (conflictError as any).originalError = error;
+      (conflictError as any).status = error.status;
+      (conflictError as any).error = error.error;
+      (conflictError as any).codigo = (error as any).codigo || 'RN008_DUPLICIDADE';
+      (conflictError as any).mensagem = 'Já existe registro de Vegetação para estas categorias e parâmetro neste escopo.';
       (conflictError as any).userMessage = (conflictError as any).mensagem;
       return throwError(() => conflictError);
     }
@@ -398,8 +409,8 @@ export class MutService {
     switch (error.status) {
       case 400: {
         const raw = (error.error?.mensagem || error.error?.message || '').toString();
-        // Mapeia duplicidade de uso anterior/atual enviada como 400/ERRO_VALIDACAO (SOLO)
-        if (/uq_mut_solo_fator_uso|duplicate key value violates unique constraint/i.test(raw)) {
+        // SOLO unique index (new name + legacy)
+        if (/ux_solo_chave_comum_escopo|uq_mut_solo_fator_uso|duplicate key value violates unique constraint/i.test(raw)) {
           userMessage = 'Já existe fator Solo para esta combinação de Uso anterior/atual neste escopo.';
           (error as any).codigo = (error as any).codigo || 'RN008_DUPLICIDADE';
         } else {
