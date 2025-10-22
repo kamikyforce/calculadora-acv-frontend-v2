@@ -587,12 +587,12 @@ export class MutComponent implements OnInit, AfterViewInit, OnDestroy {
     const hasCuradorRole = this.userProfile.perfis?.includes('CURADOR') ||
                           this.userProfile.tipo === 'CURADOR';
     
-    console.log('🔐 Verificando permissões:', {
-      userProfile: this.userProfile,
-      hasAdminRole,
-      hasCuradorRole,
-      canManage: hasAdminRole || hasCuradorRole
-    });
+    // console.log('🔐 Verificando permissões:', {
+    //   userProfile: this.userProfile,
+    //   hasAdminRole,
+    //   hasCuradorRole,
+    //   canManage: hasAdminRole || hasCuradorRole
+    // });
     
     return hasAdminRole || hasCuradorRole;
   }

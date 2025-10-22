@@ -3,7 +3,8 @@ import { EscopoEnum } from "./escopo.enum";
 export enum TipoMudanca {
   SOLO = 'SOLO',
   DESMATAMENTO = 'DESMATAMENTO',
-  VEGETACAO = 'VEGETACAO'
+  VEGETACAO = 'VEGETACAO',
+  USO_ANTERIOR_ATUAL = "USO_ANTERIOR_ATUAL"
 }
 
 export interface MutFiltros {
@@ -73,6 +74,7 @@ export interface MutDesmatamentoData {
   fatorCO2?: number; // ✅ Novo campo decimal (6)
   fatorCH4?: number; // ✅ Novo campo decimal (6)
   fatorN2O?: number; // ✅ Novo campo decimal (6)
+  replicadoAutomatico?: boolean;
 }
 
 // Dados específicos - Solo
@@ -87,6 +89,8 @@ export interface MutSoloData {
   fatorN2O?: number; // ✅ Novo campo decimal (6)
   usoAnterior?: string;
   usoAtual?: string;
+  principal?: boolean;
+  replicadoAutomatico?: boolean;
 }
 
 // Dados específicos - Vegetação
@@ -108,6 +112,7 @@ export interface MutVegetacaoData {
   fatorCO2?: number; // ✅ Novo campo decimal (6)
   fatorCH4?: number; // ✅ Novo campo decimal (6)
   fatorN2O?: number; // ✅ Novo campo decimal (6)
+  replicadoAutomatico?: boolean;
 }
 
 // Request
