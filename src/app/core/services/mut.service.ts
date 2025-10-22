@@ -364,9 +364,12 @@ export class MutService {
       })));
   }
 
+  // Class: MutService
+  // Method: handleError
+  
   private handleError(error: HttpErrorResponse): Observable<never> {
     console.error('Erro no serviço MUT:', error);
-
+  
     // Log detalhado do erro para debug
     console.error('Status:', error.status);
     console.error('Status Text:', error.statusText);
@@ -375,17 +378,29 @@ export class MutService {
     if (error.error?.message) {
       console.error('Backend Message:', error.error.message);
     }
-
+  
+    // Map DB unique constraint on DESMATAMENTO UFs to a clear message (early exit)
+    const rawMsg = String(error?.error?.mensagem || error?.message || '');
+    if (rawMsg.includes('ux_desm_ufs_escopo') || rawMsg.includes('ufs_hash')) {
+      const conflictError = new Error('Já existe registro de Desmatamento com este Bioma e UFs neste escopo.');
+      (conflictError as any).originalError = error;
+      (conflictError as any).status = error.status;
+      (conflictError as any).error = error.error;
+      (conflictError as any).codigo = (error as any).codigo || 'RN008_DUPLICIDADE';
+      (conflictError as any).mensagem = 'Já existe registro de Desmatamento com este Bioma e UFs neste escopo.';
+      (conflictError as any).userMessage = (conflictError as any).mensagem;
+      return throwError(() => conflictError);
+    }
+  
     // Tratamento específico por status code
     let userMessage = 'Erro interno do servidor';
-    
+  
     switch (error.status) {
       case 400: {
-        const rawMsg = (error.error?.mensagem || error.error?.message || '').toString();
-        // Mapeia duplicidade de uso anterior/atual enviada como 400/ERRO_VALIDACAO
-        if (/uq_mut_solo_fator_uso|duplicate key value violates unique constraint/i.test(rawMsg)) {
+        const raw = (error.error?.mensagem || error.error?.message || '').toString();
+        // Mapeia duplicidade de uso anterior/atual enviada como 400/ERRO_VALIDACAO (SOLO)
+        if (/uq_mut_solo_fator_uso|duplicate key value violates unique constraint/i.test(raw)) {
           userMessage = 'Já existe fator Solo para esta combinação de Uso anterior/atual neste escopo.';
-          // Sinaliza para consumidores que é duplicidade de RN
           (error as any).codigo = (error as any).codigo || 'RN008_DUPLICIDADE';
         } else {
           userMessage = 'Dados inválidos fornecidos';
@@ -403,15 +418,11 @@ export class MutService {
         userMessage = 'Recurso não encontrado';
         break;
       case 409:
-        // Erro de conflito - geralmente duplicata
         if (error.error?.mensagem) {
-          // Usar mensagem do backend em português
           userMessage = error.error.mensagem;
         } else if (error.error?.message) {
-          // Fallback para message em inglês
           userMessage = error.error.message;
         } else {
-          // Mensagem padrão mais específica baseada no código
           if (error.error?.codigo === 'INTEGRIDADE_DADOS') {
             userMessage = 'Já existe um fator MUT com o mesmo tipo e escopo. Escolha um escopo diferente ou edite o registro existente.';
           } else {
@@ -435,7 +446,7 @@ export class MutService {
           userMessage = `Erro ${error.status}: ${error.statusText || 'Erro desconhecido'}`;
         }
     }
-
+  
     // Criar um erro customizado com a mensagem para o usuário
     const customError = new Error(userMessage);
     (customError as any).originalError = error;
@@ -444,7 +455,7 @@ export class MutService {
     (customError as any).error = error.error;
     (customError as any).codigo = (error as any).codigo || error.error?.codigo;
     (customError as any).mensagem = error.error?.mensagem ?? userMessage;
-
+  
     return throwError(() => customError);
   }
 
