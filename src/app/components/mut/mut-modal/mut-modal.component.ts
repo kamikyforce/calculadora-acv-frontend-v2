@@ -111,12 +111,8 @@ export class MutModalComponent implements OnInit {
     'Pastagem/pastagem melhorada',
     'Integração lavoura-pecuária(-floresta)',
     'Pastagem',
-    'Floresta plantada - eucalipto',
-    'Café',
-    'Regeneração Natural',
     'Plantio direto',
     'Pastagem não degradada',
-    'Agricultura convencional',
     'Lavoura',
     'Vegetação nativa (Cerrado)',
     'Vegetação nativa (Floresta)',
@@ -151,7 +147,7 @@ export class MutModalComponent implements OnInit {
     'Agricultura convencional': [],
     'Lavoura': ['Café'],
 
-    // Correções de negócio fornecidas
+    // Vegetação nativa
     'Vegetação nativa (Cerrado)': ['Plantio direto'],
     'Vegetação nativa (Floresta)': ['Plantio direto'],
     'Vegetação nativa (geral)': ['Lavoura convencional'],
@@ -160,6 +156,7 @@ export class MutModalComponent implements OnInit {
     'Vegetação nativa (Cerradão) solo médio': ['Lavoura convencional'],
     'Vegetação nativa (Cerradão)': ['Pastagem degradada', 'Pastagem nominal'],
 
+    // Estados de degradação
     'Severamente Degradado': ['Severamente Degradado', 'Moderadamente Degradado', 'Não Degradado', 'Melhorado sem uso de insumos', 'Melhorado com uso de insumos'],
     'Moderadamente Degradado': ['Severamente Degradado', 'Moderadamente Degradado', 'Não Degradado', 'Melhorado sem uso de insumos', 'Melhorado com uso de insumos'],
     'Não Degradado': ['Severamente Degradado', 'Moderadamente Degradado', 'Não Degradado', 'Melhorado sem uso de insumos', 'Melhorado com uso de insumos'],
