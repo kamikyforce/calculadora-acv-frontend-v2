@@ -76,22 +76,22 @@ export class MutModalComponent implements OnInit {
 
   // Fitofisionomia (Vegetação) – ordem F, G, OFL, O (compat)
   private allCategoriaOptions = [
-    { value: 'F', label: 'F - Formação Florestal' },
-    { value: 'G', label: 'G - Formação Campestre' },
-    { value: 'OFL', label: 'OFL - Outras Formações Florestais' },
-    { value: 'O', label: 'O - Floresta' }
+    { value: 'F', label: 'F - Floresta' },
+    { value: 'G', label: 'G - Campo' },
+    { value: 'OFL', label: 'OFL - Outras Formações Lenhosas' },
+    { value: 'O', label: 'O - Outras' }
   ];
   categoriaOptions = [
-    { value: 'O', label: 'O - Floresta' },
-    { value: 'F', label: 'F - Formação Florestal' },
-    { value: 'OFL', label: 'OFL - Outras Formações Florestais' },
-    { value: 'G', label: 'G - Formação Campestre' }
+    { value: 'F', label: 'F - Floresta' },
+    { value: 'G', label: 'G - Campo' },
+    { value: 'OFL', label: 'OFL - Outras Formações Lenhosas' },
+    { value: 'O', label: 'O - Outras' }
   ];
 
   parametroOptions: string[] = [
     'REMOÇÃO de floresta primária (tCO2e/ha/ano)',
     'Percentual de ESTOQUE de floresta secundária remanescente em relação ao carbono inicial (%)',
-    'REMOÇÃO de floresta secundária com histórico de floresta (tCO2e/ha ano)',
+    'REMOÇÃO de floresta secundária com histórico de floresta (tCO2e/ha/ano)',
     'REMOÇÃO de floresta secundária com histórico de pastagem (tCO2e/ha/ano)',
     'REMOÇÃO de floresta secundária com histórico de agricultura (tCO2e/ha/ano)',
     'REMOÇÃO de floresta secundária com outros históricos (tCO2e/ha/ano)',
@@ -358,8 +358,9 @@ export class MutModalComponent implements OnInit {
     // Primeiro aplica o que já temos em memória
     this.loadIndependentFieldsForScope(escopo);
 
+    // COMENTADO: Pre-fetching desabilitado - campos devem ficar vazios ao criar novo cadastro
     // Se estiver editando e os campos do novo escopo estiverem vazios, tenta carregar do backend
-    this.maybeFetchSiblingScopeFields(escopo);
+    // this.maybeFetchSiblingScopeFields(escopo);
 
     console.info('[MUT][TabChange] loaded fields for', escopo, {
       solo: this.soloScope[escopo],
@@ -439,147 +440,155 @@ export class MutModalComponent implements OnInit {
   }
 
   // Nova função: carrega os campos independentes do "escopo irmão" se estiverem vazios
+  // COMENTADO: Pre-fetching removido conforme solicitação - campos devem ficar vazios ao criar novo cadastro
   private maybeFetchSiblingScopeFields(scope: EscopoEnum): void {
-    if (this.mode !== 'edit') return;
+    // PRE-FETCHING DESABILITADO: Não deve haver preenchimento automático de dados do banco
+    // Os campos devem permanecer vazios para que o usuário preencha manualmente
+    
+    // if (this.mode !== 'edit') return;
 
-    const tipo = this.currentTipoMudanca;
-    // Helpers para checar se o estado local está vazio
-    const isEmptySolo =
-      this.soloScope[scope]?.fatorEmissao == null &&
-      !this.soloScope[scope]?.referencia &&
-      this.soloScope[scope]?.soloLAC == null &&
-      this.soloScope[scope]?.soloArenoso == null;
+    // const tipo = this.currentTipoMudanca;
+    // // Helpers para checar se o estado local está vazio
+    // const isEmptySolo =
+    //   this.soloScope[scope]?.fatorEmissao == null &&
+    //   !this.soloScope[scope]?.referencia &&
+    //   this.soloScope[scope]?.soloLAC == null &&
+    //   this.soloScope[scope]?.soloArenoso == null;
 
-    const isEmptyDesmat =
-      !this.desmatScope[scope]?.nomeFitofisionomia &&
-      !this.desmatScope[scope]?.sigla &&
-      !this.desmatScope[scope]?.categoria &&
-      this.desmatScope[scope]?.estoqueCarbono == null;
+    // const isEmptyDesmat =
+    //   !this.desmatScope[scope]?.nomeFitofisionomia &&
+    //   !this.desmatScope[scope]?.sigla &&
+    //   !this.desmatScope[scope]?.categoria &&
+    //   this.desmatScope[scope]?.estoqueCarbono == null;
 
-    const isEmptyVeget =
-      this.vegetScope[scope]?.amazonia == null &&
-      this.vegetScope[scope]?.caatinga == null &&
-      this.vegetScope[scope]?.cerrado == null &&
-      this.vegetScope[scope]?.mataAtlantica == null &&
-      this.vegetScope[scope]?.pampa == null &&
-      this.vegetScope[scope]?.pantanal == null;
+    // const isEmptyVeget =
+    //   this.vegetScope[scope]?.amazonia == null &&
+    //   this.vegetScope[scope]?.caatinga == null &&
+    //   this.vegetScope[scope]?.cerrado == null &&
+    //   this.vegetScope[scope]?.mataAtlantica == null &&
+    //   this.vegetScope[scope]?.pampa == null &&
+    //   this.vegetScope[scope]?.pantanal == null;
 
-    // SOLO: ler valores independentes apenas se houver registro no escopo atual com o mesmo tipo+uso
-    if (tipo === TipoMudanca.SOLO) {
-      if (isEmptySolo) {
-        this.loadSoloFromSiblingByUsoAnteriorAtual(scope);
-      }
-      return;
-    }
+    // // SOLO: ler valores independentes apenas se houver registro no escopo atual com o mesmo tipo+uso
+    // if (tipo === TipoMudanca.SOLO) {
+    //   if (isEmptySolo) {
+    //     this.loadSoloFromSiblingByUsoAnteriorAtual(scope);
+    //   }
+    //   return;
+    // }
 
-    // Desmatamento – mantém pré-preenchimento do último registro do escopo
-    if (tipo === TipoMudanca.DESMATAMENTO && isEmptyDesmat) {
-      this.mutService.listar({ tipoMudanca: tipo, escopo: scope, page: 0, size: 1, sort: 'dataAtualizacao', direction: 'DESC' })
-        .subscribe({
-          next: (resp: any) => {
-            const item = resp?.content?.[0];
-            const d = item?.dadosDesmatamento?.[0];
-            if (!d) return;
-            this.desmatScope[scope] = {
-              nomeFitofisionomia: d.nomeFitofisionomia || '',
-              sigla: this.normalizeSiglaToOption(d.siglaFitofisionomia as any),
-              categoria: (d.categoriaDesmatamento as any) ?? '' as any,
-              estoqueCarbono: d.estoqueCarbono ?? null
-            } as any;
-            this.loadIndependentFieldsForScope(scope);
-          },
-          error: () => { /* silencioso */ }
-        });
-      return;
-    }
+    // // Desmatamento – mantém pré-preenchimento do último registro do escopo
+    // if (tipo === TipoMudanca.DESMATAMENTO && isEmptyDesmat) {
+    //   this.mutService.listar({ tipoMudanca: tipo, escopo: scope, page: 0, size: 1, sort: 'dataAtualizacao', direction: 'DESC' })
+    //     .subscribe({
+    //       next: (resp: any) => {
+    //         const item = resp?.content?.[0];
+    //         const d = item?.dadosDesmatamento?.[0];
+    //         if (!d) return;
+    //         this.desmatScope[scope] = {
+    //           nomeFitofisionomia: d.nomeFitofisionomia || '',
+    //           sigla: this.normalizeSiglaToOption(d.siglaFitofisionomia as any),
+    //           categoria: (d.categoriaDesmatamento as any) ?? '' as any,
+    //           estoqueCarbono: d.estoqueCarbono ?? null
+    //         } as any;
+    //         this.loadIndependentFieldsForScope(scope);
+    //       },
+    //       error: () => { /* silencioso */ }
+    //     });
+    //   return;
+    // }
 
-    // Vegetação – mantém pré-preenchimento do último registro do escopo
-    if (tipo === TipoMudanca.VEGETACAO && isEmptyVeget) {
-      this.mutService.listar({ tipoMudanca: tipo, escopo: scope, page: 0, size: 1, sort: 'dataAtualizacao', direction: 'DESC' })
-        .subscribe({
-          next: (resp: any) => {
-            const item = resp?.content?.[0];
-            const d = item?.dadosVegetacao?.[0];
-            if (!d) return;
-            this.vegetScope[scope] = {
-              amazonia: d.valorAmazonia ?? null,
-              caatinga: d.valorCaatinga ?? null,
-              cerrado: d.valorCerrado ?? null,
-              mataAtlantica: d.valorMataAtlantica ?? null,
-              pampa: d.valorPampa ?? null,
-              pantanal: d.valorPantanal ?? null
-            };
-            this.loadIndependentFieldsForScope(scope);
-          },
-          error: () => { /* silencioso */ }
-        });
-      return;
-    }
+    // // Vegetação – mantém pré-preenchimento do último registro do escopo
+    // if (tipo === TipoMudanca.VEGETACAO && isEmptyVeget) {
+    //   this.mutService.listar({ tipoMudanca: tipo, escopo: scope, page: 0, size: 1, sort: 'dataAtualizacao', direction: 'DESC' })
+    //     .subscribe({
+    //       next: (resp: any) => {
+    //         const item = resp?.content?.[0];
+    //         const d = item?.dadosVegetacao?.[0];
+    //         if (!d) return;
+    //         this.vegetScope[scope] = {
+    //           amazonia: d.valorAmazonia ?? null,
+    //           caatinga: d.valorCaatinga ?? null,
+    //           cerrado: d.valorCerrado ?? null,
+    //           mataAtlantica: d.valorMataAtlantica ?? null,
+    //           pampa: d.valorPampa ?? null,
+    //           pantanal: d.valorPantanal ?? null
+    //         };
+    //         this.loadIndependentFieldsForScope(scope);
+    //       },
+    //       error: () => { /* silencioso */ }
+    //     });
+    //   return;
+    // }
   }
 
   // Função auxiliar para Solo: busca valores independentes do escopo atual com mesmo tipo+uso
+  // COMENTADO: Pre-fetching de Solo removido - campos devem ficar vazios ao criar novo cadastro
   private loadSoloFromSiblingByUsoAnteriorAtual(scope: EscopoEnum): void {
-    const data = this.mutForm.getRawValue();
-    const tipoFator = data.tipoFator;
-    const usoAnterior = String(data.usoAnterior || '').trim();
-    const usoAtual = String(data.usoAtual || '').trim();
+    // PRE-FETCHING DESABILITADO: Não deve haver preenchimento automático de dados do banco
+    // Os campos devem permanecer vazios para que o usuário preencha manualmente
+    
+    // const data = this.mutForm.getRawValue();
+    // const tipoFator = data.tipoFator;
+    // const usoAnterior = String(data.usoAnterior || '').trim();
+    // const usoAtual = String(data.usoAtual || '').trim();
 
-    // Só busca se o par de uso estiver definido
-    if (!tipoFator || !usoAnterior || !usoAtual) {
-      // Garante que os campos independentes fiquem vazios se não houver base para leitura
-      this.soloScope[scope] = { fatorEmissao: null, referencia: '', soloLAC: null, soloArenoso: null };
-      this.loadIndependentFieldsForScope(scope);
-      return;
-    }
+    // // Só busca se o par de uso estiver definido
+    // if (!tipoFator || !usoAnterior || !usoAtual) {
+    //   // Garante que os campos independentes fiquem vazios se não houver base para leitura
+    //   this.soloScope[scope] = { fatorEmissao: null, referencia: '', soloLAC: null, soloArenoso: null };
+    //   this.loadIndependentFieldsForScope(scope);
+    //   return;
+    // }
 
-    this.mutService.buscarSoloPorUsoAnteriorAtual(scope, tipoFator, usoAnterior, usoAtual).subscribe({
-      next: (item) => {
-        if (!item || !item.dadosSolo?.length) {
-          // Não existe no escopo alvo — mantém vazio para o usuário preencher
-          this.soloScope[scope] = { fatorEmissao: null, referencia: '', soloLAC: null, soloArenoso: null };
-          this.loadIndependentFieldsForScope(scope);
-          return;
-        }
+    // this.mutService.buscarSoloPorUsoAnteriorAtual(scope, tipoFator, usoAnterior, usoAtual).subscribe({
+    //   next: (item) => {
+    //     if (!item || !item.dadosSolo?.length) {
+    //       // Não existe no escopo alvo — mantém vazio para o usuário preencher
+    //       this.soloScope[scope] = { fatorEmissao: null, referencia: '', soloLAC: null, soloArenoso: null };
+    //       this.loadIndependentFieldsForScope(scope);
+    //       return;
+    //     }
 
-        const dados = item.dadosSolo || [];
-        // Main: linha com CO2/CH4 nulos e par de uso igual
-        const main = dados.find((r: any) =>
-          String(r?.usoAnterior || '').trim() === usoAnterior &&
-          String(r?.usoAtual || '').trim() === usoAtual &&
-          r?.fatorCO2 == null && r?.fatorCH4 == null
-        ) || dados[0];
+    //     const dados = item.dadosSolo || [];
+    //     // Main: linha com CO2/CH4 nulos e par de uso igual
+    //     const main = dados.find((r: any) =>
+    //       String(r?.usoAnterior || '').trim() === usoAnterior &&
+    //       String(r?.usoAtual || '').trim() === usoAtual &&
+    //       r?.fatorCO2 == null && r?.fatorCH4 == null
+    //     ) || dados[0];
 
-        const referencia = String(main?.descricao || '').trim();
-        const fatorEmissao = this.castNumber(main?.valorFator) ?? null;
+    //     const referencia = String(main?.descricao || '').trim();
+    //     const fatorEmissao = this.castNumber(main?.valorFator) ?? null;
 
-        // Auxiliares LAC/arenoso: uso vazio, mesma referência
-        const auxLAC = dados.find((r: any) =>
-          String(r?.usoAnterior || '').trim() === '' &&
-          String(r?.usoAtual || '').trim() === '' &&
-          String(r?.descricao || '').trim() === referencia &&
-          r?.fatorCO2 != null
-        );
-        const auxArenoso = dados.find((r: any) =>
-          String(r?.usoAnterior || '').trim() === '' &&
-          String(r?.usoAtual || '').trim() === '' &&
-          String(r?.descricao || '').trim() === referencia &&
-          r?.fatorCH4 != null
-        );
+    //     // Auxiliares LAC/arenoso: uso vazio, mesma referência
+    //     const auxLAC = dados.find((r: any) =>
+    //       String(r?.usoAnterior || '').trim() === '' &&
+    //       String(r?.usoAtual || '').trim() === '' &&
+    //       String(r?.descricao || '').trim() === referencia &&
+    //       r?.fatorCO2 != null
+    //     );
+    //     const auxArenoso = dados.find((r: any) =>
+    //       String(r?.usoAnterior || '').trim() === '' &&
+    //       String(r?.usoAtual || '').trim() === '' &&
+    //       String(r?.descricao || '').trim() === referencia &&
+    //       r?.fatorCH4 != null
+    //     );
 
-        this.soloScope[scope] = {
-          fatorEmissao,
-          referencia,
-          soloLAC: this.castNumber(auxLAC?.fatorCO2) ?? null,
-          soloArenoso: this.castNumber(auxArenoso?.fatorCH4) ?? null
-        };
-        this.loadIndependentFieldsForScope(scope);
-      },
-      error: () => {
-        // Em erro, não perturba — deixa o usuário editar manualmente
-        this.soloScope[scope] = { fatorEmissao: null, referencia: '', soloLAC: null, soloArenoso: null };
-        this.loadIndependentFieldsForScope(scope);
-      }
-    });
+    //     this.soloScope[scope] = {
+    //       fatorEmissao,
+    //       referencia,
+    //       soloLAC: this.castNumber(auxLAC?.fatorCO2) ?? null,
+    //       soloArenoso: this.castNumber(auxArenoso?.fatorCH4) ?? null
+    //     };
+    //     this.loadIndependentFieldsForScope(scope);
+    //   },
+    //   error: () => {
+    //     // Em erro, não perturba — deixa o usuário editar manualmente
+    //     this.soloScope[scope] = { fatorEmissao: null, referencia: '', soloLAC: null, soloArenoso: null };
+    //     this.loadIndependentFieldsForScope(scope);
+    //   }
+    // });
   }
 
   // ====================== UI ACTIONS ======================
@@ -1020,29 +1029,26 @@ export class MutModalComponent implements OnInit {
       return Number.isFinite(n) ? n : null;
     };
 
-    // SOLO: RN008 por escopo (referência + fatorEmissao + LAC + arenoso)
+    // SOLO: valida duplicidade somente por usoAnterior + usoAtual (ignora Tipo de fator e RN008)
     if (tipo === TipoMudanca.SOLO) {
-      const s = this.soloScope[this.activeTab];
-      const tipoFator = String(data.tipoFator || '').trim();
-      const referencia = String(s?.referencia || '').trim();
-      const fatorEmissao = toNum(s?.fatorEmissao);
-      const soloLAC = toNum(s?.soloLAC);
-      const soloArenoso = toNum(s?.soloArenoso);
+      const usoAnterior = String(this.mutForm.get('usoAnterior')?.value || '').trim();
+      const usoAtual = String(this.mutForm.get('usoAtual')?.value || '').trim();
+      const escopoAtual = escopo;
 
-      if (!tipoFator || (!referencia && fatorEmissao == null && soloLAC == null && soloArenoso == null)) {
+      // Se não tiver par de uso, não valida duplicidade
+      if (!usoAnterior || !usoAtual) {
         return true;
       }
 
-      return await new Promise<boolean>((resolve) => {
-        this.mutService.buscarSoloPorRN008(escopo, tipoFator, referencia, fatorEmissao, soloLAC, soloArenoso).subscribe({
+      // 1) Checa no escopo atual pelo par de uso (sem fallback por referência)
+      const isCurrentOk = await new Promise<boolean>((resolve) => {
+        this.mutService.buscarSoloPorUsoAnteriorAtual(escopoAtual, '', usoAnterior, usoAtual, '').subscribe({
           next: (found) => {
             const isDuplicate = !!found && (!currentId || found.id !== currentId);
             if (isDuplicate) {
               this.duplicateExists = true;
               const msg = this.buildDuplicateMessage();
-              this.notificationService.warning(`${msg} Registro de Solo já existe neste ${this.getEscopoLabel(escopo)}.`);
-              // CRUD de edição automático no caso de duplicidade
-              this.tryUpdateExistingOnDuplicate();
+              this.notificationService.warning(`${msg} Registro de Solo já existe neste ${this.getEscopoLabel(escopoAtual)}.`);
               resolve(false);
             } else {
               resolve(true);
@@ -1051,6 +1057,29 @@ export class MutModalComponent implements OnInit {
           error: () => resolve(true)
         });
       });
+
+      if (!isCurrentOk) return false;
+
+      // 2) Checa no outro escopo pelo mesmo par de uso
+      const otherEscopo = escopoAtual === EscopoEnum.ESCOPO1 ? EscopoEnum.ESCOPO3 : EscopoEnum.ESCOPO1;
+
+      const isOtherOk = await new Promise<boolean>((resolve) => {
+        this.mutService.buscarSoloPorUsoAnteriorAtual(otherEscopo, '', usoAnterior, usoAtual, '').subscribe({
+          next: (foundOther) => {
+            if (foundOther) {
+              this.duplicateExists = true;
+              const msg = this.buildDuplicateMessage();
+              this.notificationService.warning(`${msg} Registro de Solo já existe no ${this.getEscopoLabel(otherEscopo)}.`);
+              resolve(false);
+            } else {
+              resolve(true);
+            }
+          },
+          error: () => resolve(true)
+        });
+      });
+
+      return isOtherOk;
     }
 
     // DESMATAMENTO: valores independentes por escopo (nome + sigla + categoria + estoque) + Bioma+UFs
@@ -1118,43 +1147,53 @@ export class MutModalComponent implements OnInit {
       });
     }
 
-    // VEGETAÇÃO: todos os biomas por escopo
+    // VEGETAÇÃO: chave = Categoria(s) da fitofisionomia + Parâmetro (checa nos dois escopos)
     if (tipo === TipoMudanca.VEGETACAO) {
-      const v = this.vegetScope[this.activeTab];
-      const vals = [
-        toNum(v?.amazonia), toNum(v?.caatinga), toNum(v?.cerrado),
-        toNum(v?.mataAtlantica), toNum(v?.pampa), toNum(v?.pantanal)
-      ];
+      const escopoAtual: EscopoEnum = escopo;
+      const escopoIrmao: EscopoEnum = escopoAtual === EscopoEnum.ESCOPO1 ? EscopoEnum.ESCOPO3 : EscopoEnum.ESCOPO1;
 
-      if (vals.every(x => x == null)) {
+      const parametro = String(data.parametro || '').trim();
+      const categoriasSel: string[] = Array.isArray(data.categoriaFitofisionomia)
+        ? (data.categoriaFitofisionomia as any[]).filter((c: any) => !!c).map(c => String(c))
+        : [];
+
+      if (!parametro || categoriasSel.length === 0) {
         return true;
       }
 
-      return await new Promise<boolean>((resolve) => {
-        this.mutService.listar({ tipoMudanca: TipoMudanca.VEGETACAO, escopo, page: 0, size: 500 }).subscribe({
+      const mesmaChave = (item: any) => {
+        const dv = item?.dadosVegetacao?.[0];
+        if (!dv) return false;
+        const paramsIgual = String(dv.parametro || '').trim() === parametro;
+        const catsItem = Array.isArray(dv.categoriasFitofisionomia) ? dv.categoriasFitofisionomia.slice().map((c: any) => String(c)).sort() : [];
+        const catsSel = categoriasSel.slice().sort();
+        const catsIgual = JSON.stringify(catsItem) === JSON.stringify(catsSel);
+        return paramsIgual && catsIgual;
+      };
+
+      const checaNoEscopo = (e: EscopoEnum) => new Promise<boolean>((resolve) => {
+        this.mutService.listar({ tipoMudanca: TipoMudanca.VEGETACAO, escopo: e, page: 0, size: 500 }).subscribe({
           next: (resp) => {
             const lista = resp?.content || [];
-            const dup = lista.find(item => {
-              const r = item.dadosVegetacao?.[0];
-              if (!r) return false;
-              const actual = [
-                toNum(r.valorAmazonia), toNum(r.valorCaatinga), toNum(r.valorCerrado),
-                toNum(r.valorMataAtlantica), toNum(r.valorPampa), toNum(r.valorPantanal)
-              ];
-              return actual.every((num, idx) => num === vals[idx]);
-            });
-            const isDuplicate = !!dup && (!currentId || dup.id !== currentId);
-          if (isDuplicate) {
-            this.duplicateExists = true;
-            this.notificationService.warning(this.buildVegetacaoDuplicateMessage());
-            resolve(false);
-          } else {
-            resolve(true);
-          }
+            const dup = lista.find(mesmaChave);
+            const isDup = !!dup && (!currentId || dup.id !== currentId);
+            resolve(isDup);
           },
-          error: () => resolve(true)
+          error: () => resolve(false)
         });
       });
+
+      const dupAtual = await checaNoEscopo(escopoAtual);
+      const dupIrmao = await checaNoEscopo(escopoIrmao);
+
+      if (dupAtual || dupIrmao) {
+        this.duplicateExists = true;
+        const msg = this.buildVegetacaoDuplicateMessage();
+        this.notificationService.warning(msg);
+        return false;
+      }
+
+      return true;
     }
 
     return true;
@@ -1441,10 +1480,10 @@ export class MutModalComponent implements OnInit {
   private getCategoriaLabel(sigla: SiglaFitofisionomia | string | null | undefined): string {
     const key = String(sigla ?? '').toUpperCase();
     switch (key) {
-      case 'F': return 'Formação Florestal';
-      case 'G': return 'Formação Campestre';
-      case 'OFL': return 'Outras Formações Florestais';
-      case 'O': return 'Floresta';
+      case 'F': return 'F - Floresta';
+      case 'G': return 'G - Campo';
+      case 'OFL': return 'OFL - Outras Formações Lenhosas';
+      case 'O': return 'O - Outras';
       default: return key || 'Categoria da fitofisionomia';
     }
   }
@@ -1526,6 +1565,62 @@ export class MutModalComponent implements OnInit {
         console.error('[MUT][Duplicate] Falha na busca RN008', err);
         // Fallback: buscar por usoAnterior/usoAtual
         this.updateByUsoAnteriorAtualFallback(escopo, tipoFator, usoAnterior, usoAtual);
+      }
+    });
+  }
+
+  private tryUpdateExistingOnDuplicateInEscopo(targetEscopo: EscopoEnum): void {
+    const data = this.mutForm.getRawValue();
+    const tipoFator = data.tipoFator;
+    const usoAnterior = data.usoAnterior;
+    const usoAtual = data.usoAtual;
+
+    console.info('[MUT][Duplicate][CrossScope] Tentando atualizar registro existente no outro escopo com LAC/Arenoso', {
+      targetEscopo, tipoFator, usoAnterior, usoAtual
+    });
+
+    const s = this.soloScope[this.activeTab];
+    const referencia = s?.referencia || '';
+    const fatorEmissao = this.castNumber(s?.fatorEmissao);
+    const soloLAC = this.castNumber(s?.soloLAC);
+    const soloArenoso = this.castNumber(s?.soloArenoso);
+
+    this.isLoading = true;
+
+    // Primeiro tenta localizar por RN008 no escopo alvo
+    this.mutService.buscarSoloPorRN008(targetEscopo, tipoFator, referencia, fatorEmissao, soloLAC, soloArenoso).subscribe({
+      next: (foundByValues) => {
+        if (foundByValues && foundByValues.id) {
+          this.fator = foundByValues;
+          this.mode = 'edit';
+          const mutRequest = this.buildMutRequest();
+
+          console.info('[MUT][Duplicate][CrossScope] RN008 encontrado no outro escopo. Atualizando registro existente', { id: foundByValues.id, mutRequest });
+
+          this.mutService.atualizar(foundByValues.id, mutRequest).subscribe({
+            next: (resp) => {
+              this.isLoading = false;
+              if (this.notifyInModal) {
+                this.notificationService.success('Registro de Solo atualizado no outro escopo com LAC/Arenoso.');
+              }
+              this.save.emit(resp);
+              this.onClose();
+            },
+            error: (err) => {
+              console.error('[MUT][Duplicate][CrossScope] Falha ao atualizar via RN008 no outro escopo', err);
+              // Fallback para busca por usoAnterior/usoAtual
+              this.updateByUsoAnteriorAtualFallback(targetEscopo, tipoFator, usoAnterior, usoAtual);
+            }
+          });
+          return;
+        }
+
+        // Fallback: buscar por usoAnterior/usoAtual no escopo alvo
+        this.updateByUsoAnteriorAtualFallback(targetEscopo, tipoFator, usoAnterior, usoAtual);
+      },
+      error: (err) => {
+        console.error('[MUT][Duplicate][CrossScope] Falha na busca RN008 no outro escopo', err);
+        this.updateByUsoAnteriorAtualFallback(targetEscopo, tipoFator, usoAnterior, usoAtual);
       }
     });
   }
@@ -1753,29 +1848,15 @@ export class MutModalComponent implements OnInit {
     const escopoLabel = this.getEscopoLabel(data.escopo);
 
     if (this.currentTipoMudanca === TipoMudanca.SOLO) {
-      const tipoLabel = this.getTipoFatorLabel(data.tipoFator);
       const usoAnterior = String(data.usoAnterior || '').trim();
       const usoAtual = String(data.usoAtual || '').trim();
-      const referencia = String(this.soloScope[this.activeTab]?.referencia || '').trim();
-      const fe = this.castNumber(this.soloScope[this.activeTab]?.fatorEmissao);
-      const lac = this.castNumber(this.soloScope[this.activeTab]?.soloLAC);
-      const arenoso = this.castNumber(this.soloScope[this.activeTab]?.soloArenoso);
 
       const lines = [
         `Duplicidade detectada no escopo ${escopoLabel}.`,
-        `- Tipo de fator: ${tipoLabel}`,
         `- Uso anterior → uso atual: ${usoAnterior} → ${usoAtual}`,
+        '',
+        'Ação sugerida: editar o registro existente ou ajustar os valores.'
       ];
-
-      if (referencia || fe !== undefined || lac !== undefined || arenoso !== undefined) {
-        lines.push('- Valores informados:');
-        if (fe !== undefined) lines.push(`  • Fator de emissão: ${fe}`);
-        if (lac !== undefined) lines.push(`  • Solo LAC: ${lac}`);
-        if (arenoso !== undefined) lines.push(`  • Solo Arenoso: ${arenoso}`);
-        if (referencia) lines.push(`  • Referência: ${referencia}`);
-      }
-
-      lines.push('', 'Ação sugerida: editar o registro existente ou ajustar os valores.');
       return lines.join('\n');
     }
 
@@ -1834,12 +1915,10 @@ export class MutModalComponent implements OnInit {
     const backendMsg = String(error?.error?.mensagem || error?.error?.message || error?.message || 'Erro desconhecido');
 
     if (this.currentTipoMudanca === TipoMudanca.SOLO) {
-      const tipoLabel = this.getTipoFatorLabel(data.tipoFator);
       const usoAnterior = String(data.usoAnterior || '').trim();
       const usoAtual = String(data.usoAtual || '').trim();
       return [
         `Erro ao salvar Solo (${escopoLabel}).`,
-        `- Tipo de fator: ${tipoLabel}`,
         `- Uso anterior → uso atual: ${usoAnterior} → ${usoAtual}`,
         '',
         `Detalhes: ${backendMsg}`

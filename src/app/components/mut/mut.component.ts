@@ -321,6 +321,67 @@ export class MutComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  // ===== Helpers para merge cross-escopos =====
+  private getTimeFromData(data: any): number {
+    try {
+      if (Array.isArray(data) && data.length >= 3) {
+        const [year, month, day] = data as number[];
+        return new Date(year, (month as number) - 1, day as number).getTime();
+      }
+      if (typeof data === 'string' && data.trim()) {
+        return new Date(data).getTime();
+      }
+    } catch {
+      // ignore
+    }
+    return 0;
+  }
+
+  private buildMergeKey(f: MutResponse): string {
+    switch (f.tipoMudanca) {
+      case TipoMudanca.SOLO: {
+        const principal = (f.dadosSolo || []).find(ds => (ds as any)?.fatorCO2 == null && (ds as any)?.fatorCH4 == null);
+        if (!principal) return `SOLO|__no_main__|${f.id}`;
+        const tipo = (principal as any).tipoFatorSolo ? String((principal as any).tipoFatorSolo).trim().toUpperCase() : '';
+        const usoAnt = this.normalizarTexto((principal as any).usoAnterior || '');
+        const usoAt = this.normalizarTexto((principal as any).usoAtual || '');
+        return `SOLO|${tipo}|${usoAnt}|${usoAt}`;
+      }
+      case TipoMudanca.DESMATAMENTO: {
+        const d = (f.dadosDesmatamento || [])[0] as any;
+        if (!d || !d.bioma) return `DESMATAMENTO|__no_key__|${f.id}`;
+        const ufs = Array.isArray(d.ufs) ? (d.ufs as string[]).slice().sort().join(',') : '';
+        return `DESMATAMENTO|${d.bioma}|UF:${ufs}`;
+      }
+      case TipoMudanca.VEGETACAO: {
+        const v = (f.dadosVegetacao || [])[0] as any;
+        const parametro = String(v?.parametro || '').trim();
+        const categorias = Array.isArray(v?.categoriasFitofisionomia) ? (v.categoriasFitofisionomia as string[]).slice().sort().join(',') : '';
+        return `VEGETACAO|${categorias}|${parametro}`;
+      }
+      default:
+        return `${f.tipoMudanca}|${f.id}`;
+    }
+  }
+
+  private mergeAcrossEscopos(items: MutResponse[]): MutResponse[] {
+    const map = new Map<string, MutResponse>();
+    for (const it of items || []) {
+      const key = this.buildMergeKey(it);
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, it);
+        continue;
+      }
+      const ex = this.getTimeFromData(existing.dataAtualizacao) || this.getTimeFromData((existing as any).dataCriacao);
+      const nv = this.getTimeFromData(it.dataAtualizacao) || this.getTimeFromData((it as any).dataCriacao);
+      if (nv > ex) {
+        map.set(key, it);
+      }
+    }
+    return Array.from(map.values());
+  }
+
   carregarFatores(): void {
     this.isLoading = true;
     
@@ -352,7 +413,9 @@ export class MutComponent implements OnInit, AfterViewInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response: any) => {
-          this.fatoresMut = response.content || [];
+          // Merge dos itens para consolidar across escopos
+          const content = response.content || [];
+          this.fatoresMut = this.mergeAcrossEscopos(content);
           this.totalItems = response.totalElements || 0;
           this.totalPages = response.totalPages || 0;
           
@@ -693,6 +756,9 @@ export class MutComponent implements OnInit, AfterViewInit, OnDestroy {
         } as any;
         console.log('✅ Item atualizado na lista local com data de atualização');
         
+        // Reaplica o merge para manter uma linha por chave
+        this.fatoresMut = this.mergeAcrossEscopos(this.fatoresMut);
+        
         // Atualizar também as listas filtradas
         this.updateFilteredData();
         this.updatePaginatedData();
@@ -708,6 +774,10 @@ export class MutComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.modalMode === 'create') {
       console.log('➕ ADICIONANDO NOVO ITEM À LISTA...');
       this.fatoresMut.unshift(mutResponse); // Adicionar no início da lista
+
+      // Reaplica o merge para manter uma linha por chave
+      this.fatoresMut = this.mergeAcrossEscopos(this.fatoresMut);
+
       this.updateFilteredData();
       this.updatePaginatedData();
       this.forceTableUpdate();
@@ -900,7 +970,7 @@ export class MutComponent implements OnInit, AfterViewInit, OnDestroy {
       .replace(/\s*-\s*Solo\s+\w+\b/gi, '')
       // normaliza variações citadas na tabela
       .replace(/Integração\s+lavoura-pecuária\(-floresta\)/gi, 'Integração lavoura-pecuária')
-      .replace(/Pastagem\/?pastagem\s+melhorada/gi, 'Pastagem melhorada')
+      .replace(/Pastagem\/?.*pastagem\s+melhorada/gi, 'Pastagem melhorada')
       .replace(/Melhorado\s+sem\s+uso\s+de\s+insumos/gi, 'Melhorado sem uso de insumos')
       .replace(/Melhorado\s+com\s+uso\s+de\s+insumos/gi, 'Melhorado com uso de insumos')
       .replace(/Cana-de-açúcar\s+com\s+queima/gi, 'Cana-de-açúcar com queima')
@@ -1141,55 +1211,55 @@ export class MutComponent implements OnInit, AfterViewInit, OnDestroy {
   private getBiomaFromFator(fator: MutResponse): string {
     // Extrair bioma dos dados específicos
     if (fator.dadosDesmatamento && fator.dadosDesmatamento.length > 0) {
-      return fator.dadosDesmatamento[0].bioma || '';
+      return (fator.dadosDesmatamento[0] as any).bioma || '';
     }
     if (fator.dadosVegetacao && fator.dadosVegetacao.length > 0) {
-      return fator.dadosVegetacao[0].bioma || '';
+      return (fator.dadosVegetacao[0] as any).bioma || '';
     }
     if (fator.dadosSolo && fator.dadosSolo.length > 0) {
-      return fator.dadosSolo[0].bioma || '';
+      return (fator.dadosSolo[0] as any).bioma || '';
     }
     return '';
   }
 
   private getFatorCO2FromFator(fator: MutResponse): string {
     // Extrair fatorCO2 dos dados específicos
-    if (fator.dadosDesmatamento && fator.dadosDesmatamento.length > 0 && fator.dadosDesmatamento[0].fatorCO2 !== undefined) {
-      return fator.dadosDesmatamento[0].fatorCO2.toString();
+    if (fator.dadosDesmatamento && fator.dadosDesmatamento.length > 0 && (fator.dadosDesmatamento[0] as any).fatorCO2 !== undefined) {
+      return String((fator.dadosDesmatamento[0] as any).fatorCO2);
     }
-    if (fator.dadosVegetacao && fator.dadosVegetacao.length > 0 && fator.dadosVegetacao[0].fatorCO2 !== undefined) {
-      return fator.dadosVegetacao[0].fatorCO2.toString();
+    if (fator.dadosVegetacao && fator.dadosVegetacao.length > 0 && (fator.dadosVegetacao[0] as any).fatorCO2 !== undefined) {
+      return String((fator.dadosVegetacao[0] as any).fatorCO2);
     }
-    if (fator.dadosSolo && fator.dadosSolo.length > 0 && fator.dadosSolo[0].fatorCO2 !== undefined) {
-      return fator.dadosSolo[0].fatorCO2.toString();
+    if (fator.dadosSolo && fator.dadosSolo.length > 0 && (fator.dadosSolo[0] as any).fatorCO2 !== undefined) {
+      return String((fator.dadosSolo[0] as any).fatorCO2);
     }
     return '';
   }
 
   private getFatorCH4FromFator(fator: MutResponse): string {
     // Extrair fatorCH4 dos dados específicos
-    if (fator.dadosDesmatamento && fator.dadosDesmatamento.length > 0 && fator.dadosDesmatamento[0].fatorCH4 !== undefined) {
-      return fator.dadosDesmatamento[0].fatorCH4.toString();
+    if (fator.dadosDesmatamento && fator.dadosDesmatamento.length > 0 && (fator.dadosDesmatamento[0] as any).fatorCH4 !== undefined) {
+      return String((fator.dadosDesmatamento[0] as any).fatorCH4);
     }
-    if (fator.dadosVegetacao && fator.dadosVegetacao.length > 0 && fator.dadosVegetacao[0].fatorCH4 !== undefined) {
-      return fator.dadosVegetacao[0].fatorCH4.toString();
+    if (fator.dadosVegetacao && fator.dadosVegetacao.length > 0 && (fator.dadosVegetacao[0] as any).fatorCH4 !== undefined) {
+      return String((fator.dadosVegetacao[0] as any).fatorCH4);
     }
-    if (fator.dadosSolo && fator.dadosSolo.length > 0 && fator.dadosSolo[0].fatorCH4 !== undefined) {
-      return fator.dadosSolo[0].fatorCH4.toString();
+    if (fator.dadosSolo && fator.dadosSolo.length > 0 && (fator.dadosSolo[0] as any).fatorCH4 !== undefined) {
+      return String((fator.dadosSolo[0] as any).fatorCH4);
     }
     return '';
   }
 
   private getFatorN2OFromFator(fator: MutResponse): string {
     // Extrair fatorN2O dos dados específicos
-    if (fator.dadosDesmatamento && fator.dadosDesmatamento.length > 0 && fator.dadosDesmatamento[0].fatorN2O !== undefined) {
-      return fator.dadosDesmatamento[0].fatorN2O.toString();
+    if (fator.dadosDesmatamento && fator.dadosDesmatamento.length > 0 && (fator.dadosDesmatamento[0] as any).fatorN2O !== undefined) {
+      return String((fator.dadosDesmatamento[0] as any).fatorN2O);
     }
-    if (fator.dadosVegetacao && fator.dadosVegetacao.length > 0 && fator.dadosVegetacao[0].fatorN2O !== undefined) {
-      return fator.dadosVegetacao[0].fatorN2O.toString();
+    if (fator.dadosVegetacao && fator.dadosVegetacao.length > 0 && (fator.dadosVegetacao[0] as any).fatorN2O !== undefined) {
+      return String((fator.dadosVegetacao[0] as any).fatorN2O);
     }
-    if (fator.dadosSolo && fator.dadosSolo.length > 0 && fator.dadosSolo[0].fatorN2O !== undefined) {
-      return fator.dadosSolo[0].fatorN2O.toString();
+    if (fator.dadosSolo && fator.dadosSolo.length > 0 && (fator.dadosSolo[0] as any).fatorN2O !== undefined) {
+      return String((fator.dadosSolo[0] as any).fatorN2O);
     }
     return '';
   }
@@ -1217,36 +1287,5 @@ export class MutComponent implements OnInit, AfterViewInit, OnDestroy {
     // restaura lista local imediatamente
     this.fatoresFiltrados = [...this.fatoresMut];
     this.updatePaginatedData();
-
-    // e sincroniza com servidor sem travar UI
-    if (this.searchSubject) {
-      this.searchSubject.next('');
-    } else {
-      this.carregarFatores();
-    }
-  }
-
-  // Método para aplicar filtro rápido
-  aplicarFiltroRapido(tipo: 'todos' | 'solo' | 'vegetacao' | 'desmatamento'): void {
-    switch (tipo) {
-      case 'todos':
-        this.filtros.tipoMudanca = undefined;
-        break;
-      case 'solo':
-        this.filtros.tipoMudanca = TipoMudanca.SOLO;
-        break;
-      case 'vegetacao':
-        this.filtros.tipoMudanca = TipoMudanca.VEGETACAO;
-        break;
-      case 'desmatamento':
-        this.filtros.tipoMudanca = TipoMudanca.DESMATAMENTO;
-        break;
-    }
-    this.aplicarFiltros();
-  }
-
-  setPage(p: number): void {
-    this.changePage(p);
-    this.isPageOpen = false;
   }
 }

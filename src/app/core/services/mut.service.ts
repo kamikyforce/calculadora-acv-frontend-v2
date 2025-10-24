@@ -146,7 +146,7 @@ export class MutService {
       // NOVO: exigir ao menos uma categoria de fitofisionomia
       const categorias = mut.dadosVegetacao[0]?.categoriasFitofisionomia;
       if (!Array.isArray(categorias) || categorias.length === 0) {
-        return { valido: false, erro: 'Selecione ao menos uma categoria da fitofisionomia para vegetação.' };
+        return { valido: false, erro: 'Selecione ao menos uma categoria da fitosionomia para vegetação.' };
       }
       // Removido: bioma não é mais obrigatório para vegetação
       // if (!mut.dadosVegetacao[0]?.bioma) {
@@ -476,43 +476,38 @@ export class MutService {
     tipoFatorSolo: string,
     usoAnterior: string,
     usoAtual: string,
-    referencia?: string // ✅ novo parâmetro opcional para melhorar seleção do "main"
+    referencia?: string
   ): Observable<MutResponse | null> {
     return this.listar({ tipoMudanca: TipoMudanca.SOLO, escopo, page: 0, size: 500 }).pipe(
       map((resp) => {
         const lista = resp?.content || [];
-        const normTipoBusca = this.normalizeTipoFator(tipoFatorSolo);
         const usoAnt = String(usoAnterior || '').trim().toLowerCase();
         const usoAt = String(usoAtual || '').trim().toLowerCase();
         const ref = String(referencia || '').trim();
-  
-        // 1) Tenta localizar pelo par de uso (main record tem CO2/CH4 nulos)
+
+        // 1) Par de uso (sem considerar tipoFator)
         for (const item of lista) {
           const main = (item.dadosSolo || []).find(
             (r: any) =>
-              this.normalizeTipoFator(r?.tipoFatorSolo) === normTipoBusca &&
               String(r?.usoAnterior || '').trim().toLowerCase() === usoAnt &&
               String(r?.usoAtual || '').trim().toLowerCase() === usoAt &&
               (r?.fatorCO2 == null && r?.fatorCH4 == null)
           );
-          if (main) {
-            return item;
+          if (main) return item;
+        }
+
+        // 2) Fallback pela referência SOMENTE se houver referência
+        if (ref) {
+          for (const item of lista) {
+            const main = (item.dadosSolo || []).find(
+              (r: any) =>
+                (r?.fatorCO2 == null && r?.fatorCH4 == null) &&
+                String(r?.descricao || '').trim() === ref
+            );
+            if (main) return item;
           }
         }
-  
-        // 2) Fallback: main com tipo equivalente e, se houver, mesma referência
-        for (const item of lista) {
-          const main = (item.dadosSolo || []).find(
-            (r: any) =>
-              this.normalizeTipoFator(r?.tipoFatorSolo) === normTipoBusca &&
-              (r?.fatorCO2 == null && r?.fatorCH4 == null) &&
-              (ref ? String(r?.descricao || '').trim() === ref : true)
-          );
-          if (main) {
-            return item;
-          }
-        }
-  
+
         return null;
       }),
       catchError(() => of(null))
@@ -526,15 +521,15 @@ export class MutService {
   }
 
   // ✅ Ajustado: localizar registro por RN008 considerando LAC (CO2) e Arenoso (CH4) em linhas separadas
+  // Dentro da classe MutService
   buscarSoloPorRN008(
     escopo: EscopoEnum,
-    tipoFatorSolo: string,
+    tipoFatorSolo: string, // mantido na assinatura, porém ignorado na lógica
     referencia: string,
     fatorEmissao: number | null | undefined,
     soloLAC: number | null | undefined,
     soloArenoso: number | null | undefined
   ): Observable<MutResponse | null> {
-    const normTipoBusca = this.normalizeTipoFator(tipoFatorSolo);
     const ref = String(referencia || '').trim();
   
     const toNum = (v: any) => {
@@ -551,22 +546,20 @@ export class MutService {
         for (const item of lista) {
           const dados = item.dadosSolo || [];
   
-          // Main: tipo igual, gases nulos, referência igual e (opcional) valorFator igual
+          // Main: gases nulos, mesma referência e (opcional) valorFator igual
           const main = dados.find((r: any) =>
-            this.normalizeTipoFator(r?.tipoFatorSolo) === normTipoBusca &&
             (r?.fatorCO2 == null && r?.fatorCH4 == null) &&
             String(r?.descricao || '').trim() === ref &&
             (targetMainValor == null || toNum(r?.valorFator) === targetMainValor)
           );
           if (!main) continue;
   
-          // ✅ CO2 (LAC) e CH4 (Arenoso) podem estar em linhas distintas com par de uso vazio
+          // Auxiliares: LAC (CO2) e Arenoso (CH4) em linhas com par de uso vazio ("", "")
           const hasCO2 = targetCO2 != null;
           const hasCH4 = targetCH4 != null;
   
           const auxLAC = hasCO2
             ? dados.find((r: any) =>
-                this.normalizeTipoFator(r?.tipoFatorSolo) === normTipoBusca &&
                 String(r?.usoAnterior || '').trim() === '' &&
                 String(r?.usoAtual || '').trim() === '' &&
                 String(r?.descricao || '').trim() === ref &&
@@ -576,7 +569,6 @@ export class MutService {
   
           const auxArenoso = hasCH4
             ? dados.find((r: any) =>
-                this.normalizeTipoFator(r?.tipoFatorSolo) === normTipoBusca &&
                 String(r?.usoAnterior || '').trim() === '' &&
                 String(r?.usoAtual || '').trim() === '' &&
                 String(r?.descricao || '').trim() === ref &&
