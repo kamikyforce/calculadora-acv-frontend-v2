@@ -216,19 +216,21 @@
 
             <!-- Painéis expansíveis: Adicionar Lote (inline, múltiplos) -->
             <div *ngFor="let panel of novoLotesPanels; let pi = index" class="lote-editor-panel">
-              <div class="inline-fields">
+              <div class="card-header">
                 <button type="button" class="arrow-button" title="Expandir/recolher lote"
                   (click)="toggleNovoLoteEditor(pi)" [class.expanded]="panel.expanded">
                   <i class="fas fa-chevron-down" aria-hidden="true"></i>
                 </button>
-                <label class="br-label" [attr.for]="'novo-nome-lote-' + pi">Nome do lote</label>
+                <h4 class="card-title">{{ panel.novoLote.nome || 'Nome do lote' }}</h4>
+                <label class="br-label" [attr.for]="'novo-nome-lote-' + pi" style="display: none;">Nome do lote</label>
                 <div class="br-input">
                   <input [attr.id]="'novo-nome-lote-' + pi" type="text" class="form-control" [(ngModel)]="panel.novoLote.nome" placeholder="Ex: Lote 03-2025" maxlength="100" />
                 </div>
               </div>
 
-              <div class="data-table scroll-x" *ngIf="panel.expanded">
-                <table>
+              <div class="card-body" *ngIf="panel.expanded">
+                <div class="data-table scroll-x">
+                  <table>
                   <thead>
                     <tr>
                       <th>Categoria<br>animal</th>
@@ -302,13 +304,13 @@
                     </tr>
                   </tbody>
                 </table>
-              </div>
-
-              <div class="panel-actions" *ngIf="!readonly">
-                <button type="button" class="br-button link" (click)="adicionarCategoriaLinha(pi)">
-                  <i class="fas fa-plus" aria-hidden="true"></i>
-                  Adicionar categoria
-                </button>
+                </div>
+                <div class="panel-actions" *ngIf="!readonly">
+                  <button type="button" class="br-button link" (click)="adicionarCategoriaLinha(pi)">
+                    <i class="fas fa-plus" aria-hidden="true"></i>
+                    Adicionar categoria
+                  </button>
+                </div>
               </div>
             </div>
             

@@ -71,7 +71,7 @@
         <app-fase-rebanho
           *ngIf="inventario.faseAtual === 1"
           [inventarioId]="inventario.id || 0"
-          [readonly]="inventario.fasesConcluidas[1] || false"
+          [readonly]="false"
           [tipoRebanho]="inventario.tipoRebanho"
           (faseConcluida)="onFaseConcluida(1)"
         ></app-fase-rebanho>

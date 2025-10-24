@@ -333,15 +333,17 @@
               margin: 20px 1.5rem 0 1.5rem;
             }
 
-            /* Cards de lotes existentes */
-            .lote-card {
+            /* Padronização completa: lotes salvos e novos lotes com aparência idêntica */
+            .lote-card, .lote-editor-panel {
               background: #fff;
               border: 1px solid #e9ecef;
               border-radius: 8px;
               margin: 1rem 1.5rem;
               box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+              overflow: hidden;
 
-              .card-header {
+              /* Header padronizado para ambos os tipos */
+              .card-header, .inline-fields {
                 display: flex;
                 align-items: center;
                 gap: 0.75rem;
@@ -349,11 +351,38 @@
                 background: #f8f9fa;
                 border-bottom: 1px solid #e9ecef;
 
-                .card-title {
+                .card-title, .br-label {
                   margin: 0;
                   font-size: 1rem;
                   font-weight: 600;
                   color: #212529;
+                  min-width: auto;
+                  white-space: nowrap;
+                }
+
+                .br-input {
+                  flex: 1;
+                  max-width: 320px;
+
+                  input {
+                    width: 100%;
+                    padding: 0.5rem 0.75rem;
+                    border: 1px solid #ced4da;
+                    border-radius: 4px;
+                    font-size: 0.875rem;
+                    color: #495057;
+                    background-color: white;
+
+                    &:focus {
+                      outline: none;
+                      border-color: #007bff;
+                      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+                    }
+
+                    &::placeholder {
+                      color: #6c757d;
+                    }
+                  }
                 }
 
                 /* Seta azul padrão, sem fundo, apontando para baixo por padrão */
@@ -365,23 +394,36 @@
                   align-items: center;
                   justify-content: center;
                   border: none;
-                  background: transparent; /* sem fundo, usa fundo branco do container */
+                  background: transparent;
                   border-radius: 4px;
                   cursor: pointer;
                   transition: transform 0.2s ease, color 0.2s ease;
+                  flex-shrink: 0;
 
-                  &:hover { color: #0d3a8a; }
-                  i { transition: transform 0.2s ease; }
-                  &.expanded i { transform: rotate(180deg); } /* baixo -> cima quando expandido */
+                  &:hover { 
+                    color: #0d3a8a; 
+                  }
+                  
+                  i { 
+                    transition: transform 0.2s ease; 
+                  }
+                  
+                  &.expanded i { 
+                    transform: rotate(180deg); 
+                  }
                 }
               }
 
               .card-body {
                 padding: 0.75rem 0 1rem 0;
+              }
+            }
 
+            /* Estilos específicos para lotes salvos */
+            .lote-card {
+              .card-body {
                 .data-table {
-                  padding: 0 0.5rem; /* reduzir padding lateral */
-                  /* remover deslocamento que pode causar expansão horizontal indesejada */
+                  padding: 0 0.5rem; /* padding padronizado */
                   margin-left: 0;
                   overflow-x: auto; /* permitir rolagem horizontal dentro do container */
                   -webkit-overflow-scrolling: touch;
@@ -391,10 +433,10 @@
                   display: block; /* garantir comportamento de bloco */
 
                   /* Scrollbar padronizada para ambos os tipos de lote */
-                &::-webkit-scrollbar { height: 8px; }
-                &::-webkit-scrollbar-track { background: #f1f5f9; }
-                &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-                &::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+                  &::-webkit-scrollbar { height: 8px; }
+                  &::-webkit-scrollbar-track { background: #f1f5f9; }
+                  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+                  &::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
                   table {
                     width: 100%;
@@ -469,11 +511,19 @@
                        min-width: 0; /* permite encolher conforme a célula */
                        width: 100%;
                        max-width: 100%;
-                       font-size: 0.75rem; /* padronizado com novos lotes */
-                       padding: 0.25rem 0.375rem; /* padronizado com novos lotes */
-                       height: 30px; /* padronizado com novos lotes */
+                       font-size: 0.75rem; /* fonte padronizada */
+                       padding: 0.25rem 0.375rem; /* padding padronizado */
+                       height: 30px; /* altura padronizada */
                        border: 1px solid #ced4da;
                        border-radius: 4px;
+                       color: #495057; /* cor de texto padronizada (preto) */
+                       background-color: white;
+                       
+                       &:focus {
+                         outline: none;
+                         border-color: #007bff;
+                         box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+                       }
                      }
                  
                      /* Categoria com select padronizada */
@@ -531,6 +581,11 @@
               }
             }
 
+            /* Estilos específicos para novos lotes */
+            .lote-editor-panel {
+              /* Herda estilos padronizados do seletor combinado acima */
+            }
+
             /* Header de conteúdo (sem título "Informações Gerais") */
             .content-header {
               display: flex;
@@ -578,17 +633,18 @@
               }
             }
 
-            // Painel expansível de novo lote
+            // Painel expansível de novo lote - padronizado com lotes salvos
             .novo-lote-panel {
-              border: 1px dashed #9bb6e9;
-              background: #f9fbff;
-              margin: 1rem 1.5rem;
+              background: #fff; /* fundo branco igual aos lotes salvos */
+              border: 1px solid #e9ecef; /* borda sólida igual aos lotes salvos */
               border-radius: 8px;
+              margin: 1rem 1.5rem;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.06); /* sombra igual aos lotes salvos */
               overflow: visible; /* não bloquear barras de rolagem internas */
 
               .panel-header {
-                background: #f0f6ff;
-                border-bottom: 1px dashed #9bb6e9;
+                background: #f8f9fa; /* fundo igual ao header dos lotes salvos */
+                border-bottom: 1px solid #e9ecef; /* borda sólida igual aos lotes salvos */
               }
 
               .form-section {
@@ -697,12 +753,20 @@
                        min-width: 0; /* permite encolher conforme a célula */
                        width: 100% !important; /* força largura de 100% */
                        max-width: 100% !important; /* garante que não ultrapasse 100% */
-                       font-size: 0.75rem;
-                       padding: 0.25rem 0.375rem;
-                       height: 30px;
+                       font-size: 0.75rem; /* fonte padronizada */
+                       padding: 0.25rem 0.375rem; /* padding padronizado */
+                       height: 30px; /* altura padronizada */
                        border: 1px solid #ced4da;
                        border-radius: 4px;
+                       color: #495057; /* cor de texto padronizada (preto) */
+                       background-color: white;
                        box-sizing: border-box !important; /* inclui padding e border no cálculo */
+                       
+                       &:focus {
+                         outline: none;
+                         border-color: #007bff;
+                         box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+                       }
                      }
 
                   /* Primeira coluna fixa durante scroll horizontal - padronizada */
@@ -1867,3 +1931,6 @@
     }
   }
 }
+
+/* Importar estilos específicos para novos lotes */
+@import './fase-rebanho-novos-lotes.scss';

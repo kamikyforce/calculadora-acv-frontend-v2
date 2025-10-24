@@ -416,15 +416,16 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
         
         // Transferir dados das categorias para a estrutura correta antes de persistir
         if (this.categoriasFormRows.length > 0 && novoLote.id !== undefined) {
-          console.debug('[salvarNovoLoteComCategorias] Transferindo categorias para loteFormRowsById[' + novoLote.id + ']:', this.categoriasFormRows.length, 'categorias');
           this.loteFormRowsById[novoLote.id] = [...this.categoriasFormRows];
           
           // Aguardar um pequeno delay para garantir que o lote foi completamente persistido
           await new Promise(resolve => setTimeout(resolve, 100));
           
-          // Persistir categorias preenchidas no formulário clássico
-          console.debug('[salvarNovoLoteComCategorias] Iniciando persistência das categorias para lote ID:', novoLote.id);
           await this.persistirCategoriasParaLote(novoLote.id!, this.categoriasFormRows || []);
+          
+          await this.inicializarNutricaoParaLote(novoLote.id!);
+          
+          await this.inicializarManejoParaLotes();
         }
         
         this.notificationService.success('Lote criado com sucesso!');
@@ -2954,7 +2955,10 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
           const ii = ing[i] || {};
           const cc = conc[i] || {};
           const aa = adit[i] || {};
-          const pastejoOk = p?.horasPorDia != null && p?.diasPorAno != null;
+          
+          // Pastejo só é obrigatório se sistema de produção não for CONFINADO
+          const pastejoOk = this.sistemaProducao === 'CONFINADO' || (p?.horasPorDia != null && p?.diasPorAno != null);
+          
           const ingOk = !!(ii?.ingrediente || '').trim() && ii?.quantidadeKgCabDia != null && ii?.ofertaDiasAno != null && ii?.producao != null;
           const concOk = (cc?.proteinaBrutaPercentual != null || (cc?.ureia?.trim()) || (cc?.subproduto?.trim())) && cc?.quantidade != null && cc?.oferta != null;
           const aditOk = (aa?.tipo?.trim() || aa?.dose != null || aa?.percentualAdicional != null) && aa?.oferta != null;
@@ -3553,8 +3557,9 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
 
         const problemasCat: string[] = [];
 
-        // Validar pastejo
-        if (p?.horasPorDia == null || p?.diasPorAno == null) {
+        // Validar pastejo (apenas se sistema de produção não for CONFINADO)
+        const nutricaoLote = this.nutricao.find(n => n.loteId === lote.id);
+        if (nutricaoLote?.sistemaProducao !== 'CONFINADO' && (p?.horasPorDia == null || p?.diasPorAno == null)) {
           problemasCat.push('Pastejo incompleto');
         }
 
