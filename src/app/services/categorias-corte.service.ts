@@ -7,6 +7,8 @@ export interface CategoriaCorte {
   id: number;
   categoria: string;
   idade: string;
+  dataCriacao?: string;
+  dataAtualizacao?: string;
 }
 
 @Injectable({ providedIn: 'root' })

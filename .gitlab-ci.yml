@@ -1,0 +1,206 @@
+include:
+  - remote: "https://git.serpro/devops/automacao/gitlab-ci/raw/master/.dependency-track.yml"
+
+image: hub.estaleiro.serpro/pipeline/cliente-estaleiro:latest
+
+variables:
+  VERSION: 1.0.0-$CI_PIPELINE_ID
+  GIT_SSL_NO_VERIFY: "true"
+  VERSION: $CI_PIPELINE_ID
+  ESTALEIRO_SYSTEM: calculadora-acv
+  ESTALEIRO_MODULE: calculadora-acv-frontend
+
+  HTDOCS_DEFAULT_FOLDER: "publicacao/htdocs"
+  ENVIRONMENT_DES: "des"
+  ENVIRONMENT_TES: "tes"
+  URI_WEB_DES: https://des-calculadora-acv.np.bsa.estaleiro.serpro.gov.br/
+  URI_WEB_TES: https://tes-calculadora-acv.np.bsa.estaleiro.serpro.gov.br/  
+  PLATAFORMA_NGINX: "frontend:nginx"
+
+
+
+stages:
+  - transpile
+  - build
+  # - Análise de Vulnerabilidades
+  - tests
+  - promote  
+
+.config_cli_estaleiro: &config_cli_estaleiro
+  before_script:
+    - echo "Atualizando Cliente Estaleiro..."
+    - estaleiro -u
+    - echo "Configuração do Cliente Estaleiro..."
+    - estaleiro config token --literal $TOKEN_ESTALEIRO
+    - estaleiro config system $ESTALEIRO_SYSTEM
+
+transpile:
+  image: hub.estaleiro.serpro/pipeline/node:22-alpine-chrome
+  stage: transpile
+  script:
+    - echo "Configurando repositório npm..."
+    - npm config set registry https://nexus.ext.serpro.gov.br/repository/sub-13698-npm-public/
+    - npm config set "//nexus.ext.serpro.gov.br/repository/sub-13698-npm-public/:_authToken" "${NPM_TOKEN}"
+    - echo "Compilando front-end Node..."
+    - npm install
+    - npm run build
+    - mkdir -p $HTDOCS_DEFAULT_FOLDER
+    - echo "Copiando conteúdo da pasta publicável 'dist' para pasta '$HTDOCS_DEFAULT_FOLDER'"
+    - cp -R dist/calculadora-acv-frontend/* $HTDOCS_DEFAULT_FOLDER
+  artifacts:
+    paths:
+      - publicacao/
+      - node_modules/
+
+build:
+  image: hub.estaleiro.serpro/pipeline/cliente-estaleiro:latest
+  stage: build
+  <<: *config_cli_estaleiro
+  script:
+    # Estrutura de pastas de acordo com a documentação da plataforma: https://estaleiro.gitpages.serpro/Documentacao/Manual/Plataformas/
+    - cd publicacao
+    - echo "Build do Estaleiro -> estaleiro app build --module $ESTALEIRO_MODULE --platform $PLATAFORMA_NGINX --version $VERSION"
+    - estaleiro app build --module $ESTALEIRO_MODULE --platform $PLATAFORMA_NGINX --version $VERSION
+    # REALIZANDO O DEPLOY DIRETO
+    #- estaleiro app deploy $ENVIRONMENT_DES --module $ESTALEIRO_MODULE --platform $PLATAFORMA_NGINX --version $VERSION
+    - echo "Imagem " $VERSION " gerada com sucesso no repositório"
+  dependencies:
+    - transpile
+
+tests:
+  image: hub.estaleiro.serpro/pipeline/node:22-alpine-chrome
+  stage: tests
+  script:
+    - echo "Testes - analisando cobertura..."
+    - npm run test
+  dependencies:
+    - transpile
+  artifacts:
+    paths:
+      - publicacao/
+      - node_modules/
+      - sonarFiles/
+  allow_failure: false
+
+# dependency-track:
+#   image: hub.estaleiro.serpro/pipeline/node:22-alpine-chrome
+#   stage: Análise de Vulnerabilidades
+#   extends: .dependency-track-node
+#   allow_failure: true
+#   variables:
+#     DT_NODE_PROJECT_NAME: # Depencency Track Project Name
+#     DT_NODE_PROJECT_VERSION: 1.0.0
+#   before_script:
+#     - echo "Iniciando análise do dependency-track"
+#     - npm config set registry https://nexus.ext.serpro.gov.br/repository/sub-13698-npm-public/
+#     - npm config set "//nexus.ext.serpro.gov.br/repository/sub-13698-npm-public/:_authToken" "${NPM_TOKEN}"
+#   when: manual
+
+des-promote:
+  image: hub.estaleiro.serpro/pipeline/cliente-estaleiro:latest
+  stage: promote
+  <<: *config_cli_estaleiro
+  script:
+    - echo "Deploy no ambiente de Desenvolvimento..."
+    # Promote de todos os módulos
+    - estaleiro app promote mod $ENVIRONMENT_DES --module $ESTALEIRO_MODULE --version $VERSION
+    - echo "Imagem " $VERSION " publicada com sucesso no ambiente"
+    # Smoke Test apenas do módulo WEB
+    #- echo "Verificando o deploy em $URI_WEB_DES"
+    #- curl -ks $URI_SMOKE_TEST | bash -s -- -t 5 -m 20 $URI_WEB_DES
+  environment:
+    name: Desenvolvimento
+    url: $URI_WEB_DES
+  when: manual
+  dependencies:
+    - build
+  allow_failure: false
+
+tes-promote:
+  image: hub.estaleiro.serpro/pipeline/cliente-estaleiro:latest
+  stage: promote
+  <<: *config_cli_estaleiro
+  script:
+    - echo "Deploy no ambiente de Testes..."
+    # Promote de todos os módulos
+    - estaleiro app promote mod $ENVIRONMENT_TES --module $ESTALEIRO_MODULE --version $VERSION
+    - echo "Imagem " $VERSION " publicada com sucesso no ambiente"
+    # Smoke Test apenas do módulo WEB
+    #- echo "Verificando o deploy em $URI_WEB_DES"
+    #- curl -ks $URI_SMOKE_TEST | bash -s -- -t 5 -m 20 $URI_WEB_DES
+  environment:
+    name: Testes
+    url: $URI_WEB_TES
+  when: manual
+  dependencies:
+    - build
+  allow_failure: false
+
+# deploy-desenvolvimento-main:
+#   stage: deploy-desenvolvimento
+#   variables:
+#     SIGLA_AMBIENTE: des
+#   script:
+#     - ls -alh estaleiro/publica/
+#     - echo "Executando publica.sh"
+#     - sh estaleiro/publica.sh publica $ESTALEIRO_SYSTEM $ESTALEIRO_MODULE $SIGLA_AMBIENTE
+#   after_script:
+#     - echo "Criando arquivo .env"
+#     - touch estaleiro/publica/htdocs/.env
+#     - echo "Executando config.sh"
+#     - sh estaleiro/publica/config.sh &> /dev/null
+#     - cp estaleiro/publica/conf/nginx.conf /etc/nginx/
+#   dependencies:
+#     - build
+#   when: on_success
+#   only:
+#     - main
+#     # Publicações em homologação somente contendo tag iniciando com 'v' Ex: v1.0.0'
+#     - /^v.*$/
+
+# deploy-desenvolvimento:
+#   stage: deploy-desenvolvimento
+#   variables:
+#     SIGLA_AMBIENTE: des
+#   script:
+#     - ls -alh estaleiro/publica/
+#     - echo "Executando publica.sh"
+#     - sh estaleiro/publica.sh publica $ESTALEIRO_SYSTEM $ESTALEIRO_MODULE $SIGLA_AMBIENTE
+#   after_script:
+#     - echo "Criando arquivo .env"
+#     - touch estaleiro/publica/htdocs/.env
+#     - echo "Executando config.sh"
+#     - sh estaleiro/publica/config.sh &> /dev/null
+#     - cp estaleiro/publica/conf/nginx.conf /etc/nginx/
+#   dependencies:
+#     - build
+#   when: manual
+#   except:
+#     - main
+#     - /^v.*$/
+
+# deploy-homologacao:
+#   stage: deploy-homologacao
+#   variables:
+#     SIGLA_AMBIENTE: hom
+#   script:
+#     - sh estaleiro/publica.sh publica $ESTALEIRO_SYSTEM $ESTALEIRO_MODULE $SIGLA_AMBIENTE
+#   dependencies:
+#     - build
+#   when: manual
+#   only:
+#     # Publicações em homologação somente contendo tag iniciando com 'v' Ex: v1.0.0'
+#     - /^v.*$/
+
+# deploy-producao:
+#   stage: deploy-producao
+#   variables:
+#     SIGLA_AMBIENTE: pro
+#   script:
+#     - sh estaleiro/publica.sh publica $ESTALEIRO_SYSTEM $ESTALEIRO_MODULE $SIGLA_AMBIENTE
+#   dependencies:
+#     - build
+#   when: manual
+#   only:
+#     - prod
+

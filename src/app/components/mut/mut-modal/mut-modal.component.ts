@@ -12,7 +12,8 @@ import {
   TipoFatorSolo,
   SiglaFitofisionomia,
   CategoriaDesmatamento,
-  MutSoloData
+  MutSoloData,
+  MutDesmatamentoData
 } from '../../../core/models/mut.model';
 
 import { MutService } from '../../../core/services/mut.service';
@@ -28,9 +29,6 @@ import { MESSAGES } from '../../../shared/constants/messages';
   styleUrls: ['./mut-modal.component.scss']
 })
 export class MutModalComponent implements OnInit {
-  // Tratamento de duplicidade (geral + SOLO específico)
-  // - Detecção genérica de duplicidade (para SOLO, DESMATAMENTO e VEGETAÇÃO) por 409, RN008_DUPLICIDADE, DADOS_DUPLICADOS ou mensagens com "RN008/duplicados"
-  // - Para SOLO: tentativa automática de atualizar registro existente com LAC/Arenoso via tryUpdateExistingOnDuplicate()
   @Input() mode: 'create' | 'edit' = 'create';
   @Input() fator: MutResponse | null = null;
   @Input() isVisible = false;
@@ -42,13 +40,6 @@ export class MutModalComponent implements OnInit {
   activeTab: EscopoEnum = EscopoEnum.ESCOPO1;
   private lastTab: EscopoEnum = EscopoEnum.ESCOPO1;
 
-  private normalizeSiglaToOption(sigla: string | null | undefined): SiglaFitofisionomia | '' {
-    const v = (sigla ?? '').toString();
-    if (!v) return '' as any;
-    const found = this.siglaOptions.find(opt => String(opt).toUpperCase() === v.toUpperCase());
-    return (found as any) ?? '' as any;
-  }
-
   // === UI/estado ===
   isCategoriaOpen = false;
   isUfOpen = false;
@@ -57,6 +48,10 @@ export class MutModalComponent implements OnInit {
   showSaveConfirmModal = false;
   confirmType: 'cancel' | 'save' = 'cancel';
   duplicateExists = false;
+
+  // Guards para evitar loop de tentativas no DESMATAMENTO
+  private hasTriedDesmatUpdateById = false;
+  private hasTriedDesmatUpdateByBiomaUfs = false;
 
   // === Expor para o template ===
   MESSAGES = MESSAGES;
@@ -74,19 +69,14 @@ export class MutModalComponent implements OnInit {
   ufOptions = Object.values(UF);
   siglaOptions = Object.values(SiglaFitofisionomia);
 
-  // Fitofisionomia (Vegetação) – ordem F, G, OFL, O (compat)
+  // Fitofisionomia (Vegetação) – ordem F, G, OFL, O
   private allCategoriaOptions = [
     { value: 'F', label: 'F - Floresta' },
     { value: 'G', label: 'G - Campo' },
     { value: 'OFL', label: 'OFL - Outras Formações Lenhosas' },
     { value: 'O', label: 'O - Outras' }
   ];
-  categoriaOptions = [
-    { value: 'F', label: 'F - Floresta' },
-    { value: 'G', label: 'G - Campo' },
-    { value: 'OFL', label: 'OFL - Outras Formações Lenhosas' },
-    { value: 'O', label: 'O - Outras' }
-  ];
+  categoriaOptions = [...this.allCategoriaOptions];
 
   parametroOptions: string[] = [
     'REMOÇÃO de floresta primária (tCO2e/ha/ano)',
@@ -146,8 +136,6 @@ export class MutModalComponent implements OnInit {
     'Pastagem não degradada': ['Agricultura convencional'],
     'Agricultura convencional': [],
     'Lavoura': ['Café'],
-
-    // Vegetação nativa
     'Vegetação nativa (Cerrado)': ['Plantio direto'],
     'Vegetação nativa (Floresta)': ['Plantio direto'],
     'Vegetação nativa (geral)': ['Lavoura convencional'],
@@ -155,8 +143,6 @@ export class MutModalComponent implements OnInit {
     'Vegetação nativa (Cerrado) solo médio': ['Lavoura convencional'],
     'Vegetação nativa (Cerradão) solo médio': ['Lavoura convencional'],
     'Vegetação nativa (Cerradão)': ['Pastagem degradada', 'Pastagem nominal'],
-
-    // Estados de degradação
     'Severamente Degradado': ['Severamente Degradado', 'Moderadamente Degradado', 'Não Degradado', 'Melhorado sem uso de insumos', 'Melhorado com uso de insumos'],
     'Moderadamente Degradado': ['Severamente Degradado', 'Moderadamente Degradado', 'Não Degradado', 'Melhorado sem uso de insumos', 'Melhorado com uso de insumos'],
     'Não Degradado': ['Severamente Degradado', 'Moderadamente Degradado', 'Não Degradado', 'Melhorado sem uso de insumos', 'Melhorado com uso de insumos'],
@@ -188,6 +174,7 @@ export class MutModalComponent implements OnInit {
     this.initializeForm();
   }
 
+  // ====================== LIFECYCLE ======================
   ngOnInit(): void {
     if (this.fator && this.mode === 'edit') {
       this.populateForm();
@@ -222,7 +209,7 @@ export class MutModalComponent implements OnInit {
   // ====================== INIT / POPULATE ======================
   private initializeForm(): void {
     this.mutForm = this.fb.group({
-      tipoMudanca: ['', Validators.required],
+      tipoMudanca: [{ value: '', disabled: this.mode === 'edit' }, Validators.required],
       escopo: [EscopoEnum.ESCOPO1, Validators.required],
 
       // Desmatamento (replicados: bioma, valorUnico, uf)
@@ -240,7 +227,7 @@ export class MutModalComponent implements OnInit {
       usoAnterior: [''],
       usoAtual: [''],
       // Independentes por escopo:
-      fatorEmissao: [null, [this.dec6Validator()]],    // fator de emissão (principal)
+      fatorEmissao: [null, [this.dec6Validator()]],
       referencia: [''],
       soloLAC: [null, [this.dec6Validator()]],
       soloArenoso: [null, [this.dec6Validator()]],
@@ -258,10 +245,6 @@ export class MutModalComponent implements OnInit {
       pantanal: [null, [this.dec6Validator()]]
     });
 
-    if (this.mode === 'edit') {
-      this.mutForm.get('tipoMudanca')?.disable();
-    }
-
     this.applyValidatorsByTipo();
   }
 
@@ -276,7 +259,7 @@ export class MutModalComponent implements OnInit {
 
     this.applyValidatorsByTipo();
 
-    // Desmatamento — carrega independentes no mapa do escopo do fator
+    // Desmatamento
     if (this.fator.dadosDesmatamento?.length) {
       const d = this.fator.dadosDesmatamento[0];
       this.mutForm.patchValue({
@@ -295,9 +278,8 @@ export class MutModalComponent implements OnInit {
       };
     }
 
-    // Solo — carrega independentes no mapa do escopo do fator
+    // Solo
     if (this.fator.dadosSolo?.length) {
-      // Registro principal
       const principalList = this.fator.dadosSolo.filter(r => r.principal === true);
       const main = principalList.length
         ? principalList.reduce((a, b) => (b.id > a.id ? b : a), principalList[0])
@@ -320,7 +302,7 @@ export class MutModalComponent implements OnInit {
       };
     }
 
-    // Vegetação — carrega independentes no mapa do escopo do fator
+    // Vegetação
     if (this.fator.dadosVegetacao?.length) {
       const d = this.fator.dadosVegetacao[0];
       this.mutForm.patchValue({
@@ -338,15 +320,13 @@ export class MutModalComponent implements OnInit {
       };
     }
 
-    // Aplica ao form os independentes do escopo atual (se existirem)
+    // Aplica independentes do escopo atual
     this.loadIndependentFieldsForScope(this.fator.escopo);
-
     this.mutForm.markAsPristine();
   }
 
   // ====================== TABS / UI ======================
   onTabChange(escopo: EscopoEnum): void {
-    console.info('[MUT][TabChange] from', this.activeTab, 'to', escopo);
     // Salva independentes do escopo anterior
     this.persistIndependentFieldsForScope(this.activeTab);
     this.lastTab = this.activeTab;
@@ -355,23 +335,15 @@ export class MutModalComponent implements OnInit {
     this.activeTab = escopo;
     this.mutForm.patchValue({ escopo }, { emitEvent: true });
 
-    // Primeiro aplica o que já temos em memória
+    // Aplica o que já temos em memória
     this.loadIndependentFieldsForScope(escopo);
 
-    // COMENTADO: Pre-fetching desabilitado - campos devem ficar vazios ao criar novo cadastro
-    // Se estiver editando e os campos do novo escopo estiverem vazios, tenta carregar do backend
-    // this.maybeFetchSiblingScopeFields(escopo);
-
-    console.info('[MUT][TabChange] loaded fields for', escopo, {
-      solo: this.soloScope[escopo],
-      desmatamento: this.desmatScope[escopo],
-      vegetacao: this.vegetScope[escopo]
-    });
+    // Se estiver editando e escopo alvo vazio, tenta buscar do backend (solo/desmat)
+    this.maybeFetchSiblingScopeFields(escopo);
   }
 
   private persistIndependentFieldsForScope(scope: EscopoEnum): void {
     const v = this.mutForm.getRawValue();
-    console.debug('[MUT][PersistScope]', scope, 'raw form', v);
 
     // Solo independentes
     this.soloScope[scope] = {
@@ -380,7 +352,6 @@ export class MutModalComponent implements OnInit {
       soloLAC: this.castNumber(v.soloLAC) ?? null,
       soloArenoso: this.castNumber(v.soloArenoso) ?? null
     };
-    console.debug('[MUT][PersistScope][Solo]', scope, this.soloScope[scope]);
 
     // Desmatamento independentes
     this.desmatScope[scope] = {
@@ -389,7 +360,6 @@ export class MutModalComponent implements OnInit {
       categoria: v.categoria || '',
       estoqueCarbono: this.castNumber(v.estoqueCarbono) ?? null
     } as any;
-    console.debug('[MUT][PersistScope][Desmatamento]', scope, this.desmatScope[scope]);
 
     // Vegetação independentes
     this.vegetScope[scope] = {
@@ -400,12 +370,9 @@ export class MutModalComponent implements OnInit {
       pampa: this.castNumber(v.pampa) ?? null,
       pantanal: this.castNumber(v.pantanal) ?? null
     };
-    console.debug('[MUT][PersistScope][Vegetacao]', scope, this.vegetScope[scope]);
   }
 
   private loadIndependentFieldsForScope(scope: EscopoEnum): void {
-    console.debug('[MUT][LoadScope] applying fields for', scope);
-
     // Solo
     const solo = this.soloScope[scope];
     this.mutForm.patchValue({
@@ -414,7 +381,6 @@ export class MutModalComponent implements OnInit {
       soloLAC: solo.soloLAC,
       soloArenoso: solo.soloArenoso
     }, { emitEvent: false });
-    console.debug('[MUT][LoadScope][Solo]', scope, solo);
 
     // Desmatamento
     const des = this.desmatScope[scope];
@@ -424,7 +390,6 @@ export class MutModalComponent implements OnInit {
       categoria: des.categoria,
       estoqueCarbono: des.estoqueCarbono
     }, { emitEvent: false });
-    console.debug('[MUT][LoadScope][Desmatamento]', scope, des);
 
     // Vegetação
     const veg = this.vegetScope[scope];
@@ -436,159 +401,135 @@ export class MutModalComponent implements OnInit {
       pampa: veg.pampa,
       pantanal: veg.pantanal
     }, { emitEvent: false });
-    console.debug('[MUT][LoadScope][Vegetacao]', scope, veg);
   }
 
-  // Nova função: carrega os campos independentes do "escopo irmão" se estiverem vazios
-  // COMENTADO: Pre-fetching removido conforme solicitação - campos devem ficar vazios ao criar novo cadastro
+  // Pre-fetch SOLO/DESMAT (somente em edição, quando vazio)
   private maybeFetchSiblingScopeFields(scope: EscopoEnum): void {
-    // PRE-FETCHING DESABILITADO: Não deve haver preenchimento automático de dados do banco
-    // Os campos devem permanecer vazios para que o usuário preencha manualmente
-    
-    // if (this.mode !== 'edit') return;
+    if (this.mode !== 'edit') return;
 
-    // const tipo = this.currentTipoMudanca;
-    // // Helpers para checar se o estado local está vazio
-    // const isEmptySolo =
-    //   this.soloScope[scope]?.fatorEmissao == null &&
-    //   !this.soloScope[scope]?.referencia &&
-    //   this.soloScope[scope]?.soloLAC == null &&
-    //   this.soloScope[scope]?.soloArenoso == null;
+    const isEmptySolo =
+      this.soloScope[scope]?.fatorEmissao == null &&
+      !this.soloScope[scope]?.referencia &&
+      this.soloScope[scope]?.soloLAC == null &&
+      this.soloScope[scope]?.soloArenoso == null;
 
-    // const isEmptyDesmat =
-    //   !this.desmatScope[scope]?.nomeFitofisionomia &&
-    //   !this.desmatScope[scope]?.sigla &&
-    //   !this.desmatScope[scope]?.categoria &&
-    //   this.desmatScope[scope]?.estoqueCarbono == null;
+    if (this.currentTipoMudanca === TipoMudanca.SOLO && isEmptySolo) {
+      this.loadSoloFromSiblingByUsoAnteriorAtual(scope);
+    }
 
-    // const isEmptyVeget =
-    //   this.vegetScope[scope]?.amazonia == null &&
-    //   this.vegetScope[scope]?.caatinga == null &&
-    //   this.vegetScope[scope]?.cerrado == null &&
-    //   this.vegetScope[scope]?.mataAtlantica == null &&
-    //   this.vegetScope[scope]?.pampa == null &&
-    //   this.vegetScope[scope]?.pantanal == null;
+    const isEmptyDesmat =
+      !this.desmatScope[scope]?.nomeFitofisionomia &&
+      !this.desmatScope[scope]?.sigla &&
+      !this.desmatScope[scope]?.categoria &&
+      this.desmatScope[scope]?.estoqueCarbono == null;
 
-    // // SOLO: ler valores independentes apenas se houver registro no escopo atual com o mesmo tipo+uso
-    // if (tipo === TipoMudanca.SOLO) {
-    //   if (isEmptySolo) {
-    //     this.loadSoloFromSiblingByUsoAnteriorAtual(scope);
-    //   }
-    //   return;
-    // }
-
-    // // Desmatamento – mantém pré-preenchimento do último registro do escopo
-    // if (tipo === TipoMudanca.DESMATAMENTO && isEmptyDesmat) {
-    //   this.mutService.listar({ tipoMudanca: tipo, escopo: scope, page: 0, size: 1, sort: 'dataAtualizacao', direction: 'DESC' })
-    //     .subscribe({
-    //       next: (resp: any) => {
-    //         const item = resp?.content?.[0];
-    //         const d = item?.dadosDesmatamento?.[0];
-    //         if (!d) return;
-    //         this.desmatScope[scope] = {
-    //           nomeFitofisionomia: d.nomeFitofisionomia || '',
-    //           sigla: this.normalizeSiglaToOption(d.siglaFitofisionomia as any),
-    //           categoria: (d.categoriaDesmatamento as any) ?? '' as any,
-    //           estoqueCarbono: d.estoqueCarbono ?? null
-    //         } as any;
-    //         this.loadIndependentFieldsForScope(scope);
-    //       },
-    //       error: () => { /* silencioso */ }
-    //     });
-    //   return;
-    // }
-
-    // // Vegetação – mantém pré-preenchimento do último registro do escopo
-    // if (tipo === TipoMudanca.VEGETACAO && isEmptyVeget) {
-    //   this.mutService.listar({ tipoMudanca: tipo, escopo: scope, page: 0, size: 1, sort: 'dataAtualizacao', direction: 'DESC' })
-    //     .subscribe({
-    //       next: (resp: any) => {
-    //         const item = resp?.content?.[0];
-    //         const d = item?.dadosVegetacao?.[0];
-    //         if (!d) return;
-    //         this.vegetScope[scope] = {
-    //           amazonia: d.valorAmazonia ?? null,
-    //           caatinga: d.valorCaatinga ?? null,
-    //           cerrado: d.valorCerrado ?? null,
-    //           mataAtlantica: d.valorMataAtlantica ?? null,
-    //           pampa: d.valorPampa ?? null,
-    //           pantanal: d.valorPantanal ?? null
-    //         };
-    //         this.loadIndependentFieldsForScope(scope);
-    //       },
-    //       error: () => { /* silencioso */ }
-    //     });
-    //   return;
-    // }
+    if (this.currentTipoMudanca === TipoMudanca.DESMATAMENTO && isEmptyDesmat) {
+      this.loadDesmatFromSiblingByBiomaUfs(scope);
+    }
   }
 
-  // Função auxiliar para Solo: busca valores independentes do escopo atual com mesmo tipo+uso
-  // COMENTADO: Pre-fetching de Solo removido - campos devem ficar vazios ao criar novo cadastro
+  private loadDesmatFromSiblingByBiomaUfs(scope: EscopoEnum): void {
+    const data = this.mutForm.getRawValue();
+    const bioma = data.bioma;
+    const valorUnico = (data.valorUnico === true || data.valorUnico === 'true');
+    const ufsSel = Array.isArray(data.uf) ? data.uf : [];
+
+    if (!bioma) {
+      this.desmatScope[scope] = { nomeFitofisionomia: '', sigla: '' as any, categoria: '' as any, estoqueCarbono: null };
+      this.loadIndependentFieldsForScope(scope);
+      return;
+    }
+
+    this.mutService.listar({ tipoMudanca: TipoMudanca.DESMATAMENTO, escopo: scope, page: 0, size: 500 }).subscribe({
+      next: (resp) => {
+        const lista = resp?.content || [];
+        const encontrado = lista.find(item => {
+          const r = item.dadosDesmatamento?.[0];
+          if (!r) return false;
+          const matchBioma = r.bioma === bioma;
+          const matchVu = !!r.valorUnico === valorUnico;
+          const matchUfs = valorUnico ? true : this.sameUfs(r.ufs || [], ufsSel);
+          return matchBioma && matchVu && matchUfs;
+        });
+
+        if (encontrado) {
+          const r: MutDesmatamentoData | undefined = encontrado.dadosDesmatamento?.[0];
+          this.desmatScope[scope] = {
+            nomeFitofisionomia: String(r?.nomeFitofisionomia || ''),
+            sigla: (this.normalizeSiglaToOption(r?.siglaFitofisionomia) || '') as any,
+            categoria: (r?.categoriaDesmatamento || '') as any,
+            estoqueCarbono: this.castNumber(r?.estoqueCarbono) ?? null
+          } as any;
+        } else {
+          this.desmatScope[scope] = { nomeFitofisionomia: '', sigla: '' as any, categoria: '' as any, estoqueCarbono: null };
+        }
+
+        this.loadIndependentFieldsForScope(scope);
+      },
+      error: () => {
+        this.desmatScope[scope] = { nomeFitofisionomia: '', sigla: '' as any, categoria: '' as any, estoqueCarbono: null };
+        this.loadIndependentFieldsForScope(scope);
+      }
+    });
+  }
+
   private loadSoloFromSiblingByUsoAnteriorAtual(scope: EscopoEnum): void {
-    // PRE-FETCHING DESABILITADO: Não deve haver preenchimento automático de dados do banco
-    // Os campos devem permanecer vazios para que o usuário preencha manualmente
-    
-    // const data = this.mutForm.getRawValue();
-    // const tipoFator = data.tipoFator;
-    // const usoAnterior = String(data.usoAnterior || '').trim();
-    // const usoAtual = String(data.usoAtual || '').trim();
+    const data = this.mutForm.getRawValue();
+    const tipoFator = data.tipoFator;
+    const usoAnterior = String(data.usoAnterior || '').trim();
+    const usoAtual = String(data.usoAtual || '').trim();
 
-    // // Só busca se o par de uso estiver definido
-    // if (!tipoFator || !usoAnterior || !usoAtual) {
-    //   // Garante que os campos independentes fiquem vazios se não houver base para leitura
-    //   this.soloScope[scope] = { fatorEmissao: null, referencia: '', soloLAC: null, soloArenoso: null };
-    //   this.loadIndependentFieldsForScope(scope);
-    //   return;
-    // }
+    if (!tipoFator || !usoAnterior || !usoAtual) {
+      this.soloScope[scope] = { fatorEmissao: null, referencia: '', soloLAC: null, soloArenoso: null };
+      this.loadIndependentFieldsForScope(scope);
+      return;
+    }
 
-    // this.mutService.buscarSoloPorUsoAnteriorAtual(scope, tipoFator, usoAnterior, usoAtual).subscribe({
-    //   next: (item) => {
-    //     if (!item || !item.dadosSolo?.length) {
-    //       // Não existe no escopo alvo — mantém vazio para o usuário preencher
-    //       this.soloScope[scope] = { fatorEmissao: null, referencia: '', soloLAC: null, soloArenoso: null };
-    //       this.loadIndependentFieldsForScope(scope);
-    //       return;
-    //     }
+    this.mutService.buscarSoloPorUsoAnteriorAtual(scope, tipoFator, usoAnterior, usoAtual).subscribe({
+      next: (item) => {
+        if (!item || !item.dadosSolo?.length) {
+          this.soloScope[scope] = { fatorEmissao: null, referencia: '', soloLAC: null, soloArenoso: null };
+          this.loadIndependentFieldsForScope(scope);
+          return;
+        }
 
-    //     const dados = item.dadosSolo || [];
-    //     // Main: linha com CO2/CH4 nulos e par de uso igual
-    //     const main = dados.find((r: any) =>
-    //       String(r?.usoAnterior || '').trim() === usoAnterior &&
-    //       String(r?.usoAtual || '').trim() === usoAtual &&
-    //       r?.fatorCO2 == null && r?.fatorCH4 == null
-    //     ) || dados[0];
+        const dados = item.dadosSolo || [];
 
-    //     const referencia = String(main?.descricao || '').trim();
-    //     const fatorEmissao = this.castNumber(main?.valorFator) ?? null;
+        const main = dados.find((r: any) =>
+          String(r?.usoAnterior || '').trim() === usoAnterior &&
+          String(r?.usoAtual || '').trim() === usoAtual &&
+          r?.fatorCO2 == null && r?.fatorCH4 == null
+        ) || dados[0];
 
-    //     // Auxiliares LAC/arenoso: uso vazio, mesma referência
-    //     const auxLAC = dados.find((r: any) =>
-    //       String(r?.usoAnterior || '').trim() === '' &&
-    //       String(r?.usoAtual || '').trim() === '' &&
-    //       String(r?.descricao || '').trim() === referencia &&
-    //       r?.fatorCO2 != null
-    //     );
-    //     const auxArenoso = dados.find((r: any) =>
-    //       String(r?.usoAnterior || '').trim() === '' &&
-    //       String(r?.usoAtual || '').trim() === '' &&
-    //       String(r?.descricao || '').trim() === referencia &&
-    //       r?.fatorCH4 != null
-    //     );
+        const referencia = String(main?.descricao || '').trim();
+        const fatorEmissao = this.castNumber(main?.valorFator) ?? null;
 
-    //     this.soloScope[scope] = {
-    //       fatorEmissao,
-    //       referencia,
-    //       soloLAC: this.castNumber(auxLAC?.fatorCO2) ?? null,
-    //       soloArenoso: this.castNumber(auxArenoso?.fatorCH4) ?? null
-    //     };
-    //     this.loadIndependentFieldsForScope(scope);
-    //   },
-    //   error: () => {
-    //     // Em erro, não perturba — deixa o usuário editar manualmente
-    //     this.soloScope[scope] = { fatorEmissao: null, referencia: '', soloLAC: null, soloArenoso: null };
-    //     this.loadIndependentFieldsForScope(scope);
-    //   }
-    // });
+        const auxLAC = dados.find((r: any) =>
+          String(r?.usoAnterior || '').trim() === '' &&
+          String(r?.usoAtual || '').trim() === '' &&
+          String(r?.descricao || '').trim() === referencia &&
+          r?.fatorCO2 != null
+        );
+        const auxArenoso = dados.find((r: any) =>
+          String(r?.usoAnterior || '').trim() === '' &&
+          String(r?.usoAtual || '').trim() === '' &&
+          String(r?.descricao || '').trim() === referencia &&
+          r?.fatorCH4 != null
+        );
+
+        this.soloScope[scope] = {
+          fatorEmissao,
+          referencia,
+          soloLAC: this.castNumber(auxLAC?.fatorCO2) ?? null,
+          soloArenoso: this.castNumber(auxArenoso?.fatorCH4) ?? null
+        };
+        this.loadIndependentFieldsForScope(scope);
+      },
+      error: () => {
+        this.soloScope[scope] = { fatorEmissao: null, referencia: '', soloLAC: null, soloArenoso: null };
+        this.loadIndependentFieldsForScope(scope);
+      }
+    });
   }
 
   // ====================== UI ACTIONS ======================
@@ -600,8 +541,8 @@ export class MutModalComponent implements OnInit {
   closeConfirm(): void { this.isConfirmOpen = false; this.confirmType = 'cancel'; }
   closeSaveConfirmModal(): void { this.showSaveConfirmModal = false; }
   confirmSave(): void {
-      this.showSaveConfirmModal = false;
-      if (!this.isLoading) this.performSave();
+    this.showSaveConfirmModal = false;
+    if (!this.isLoading) this.performSave();
   }
   handleConfirm(): void {
     if (this.confirmType !== 'cancel') return;
@@ -618,6 +559,7 @@ export class MutModalComponent implements OnInit {
       this.close.emit();
     }
   }
+
   async onSubmit(): Promise<void> {
     if (this.showSaveConfirmModal || this.isLoading) return;
     if (!this.mutForm.valid) {
@@ -625,83 +567,69 @@ export class MutModalComponent implements OnInit {
       this.notifyFormErrors();
       return;
     }
-    
-    // Validação de duplicidade antes de abrir modal de confirmação
     const isValid = await this.validateDuplicateEntry();
-    if (!isValid) {
-      console.warn('[MUT][Submit] duplicate entry detected, aborting submit');
-      return;
-    }
-    
+    if (!isValid) return;
     this.openConfirm('save');
   }
 
   // ====================== VALIDADORES / HELPERS ======================
   private applyValidatorsByTipo(): void {
-      const currentTipo = this.currentTipoMudanca;
-      const tipoFatorValue = this.mutForm.get('tipoFator')?.value;
-      console.info('[MUT][Validators] tipoMudanca=', currentTipo, 'tipoFator=', tipoFatorValue, 'escopo=', this.activeTab);
-  
-      // 1) Limpa TODOS os validadores antes de aplicar os do tipo atual
-      Object.keys(this.mutForm.controls).forEach(k => this.mutForm.get(k)?.clearValidators());
-  
-      // Campos sempre obrigatórios (independente do tipo)
-      this.setValidators('tipoMudanca', [Validators.required]);
-      this.setValidators('escopo', [Validators.required]);
-  
-      if (this.currentTipoMudanca === TipoMudanca.DESMATAMENTO) {
-          console.debug('[MUT][Validators] applying DESMATAMENTO validators');
-          // Replicados
-          this.setValidators('bioma', [Validators.required]);
-          this.setValidators('valorUnico', [Validators.required]);
-          this.setValidators('uf', [this.ufConditionalValidator()]);
-          // Independentes
-          this.setValidators('nomeFitofisionomia', [Validators.required]);
-          this.setValidators('sigla', [Validators.required]);
-          this.setValidators('categoria', [Validators.required]);
-          this.setValidators('estoqueCarbono', [Validators.required, this.dec6Validator()]);
-      }
-  
-      if (this.currentTipoMudanca === TipoMudanca.VEGETACAO) {
-          console.debug('[MUT][Validators] applying VEGETACAO validators');
-          // Replicados
-          this.setValidators('parametro', [Validators.required]);
-          this.setValidators('categoriaFitofisionomia', [this.categoriaValidator()]);
-          // Independentes
-          ['amazonia','caatinga','cerrado','mataAtlantica','pampa','pantanal'].forEach(f =>
-              this.setValidators(f, [this.dec6Validator()])
-          );
-      }
-  
-      if (this.currentTipoMudanca === TipoMudanca.SOLO) {
-            console.debug('[MUT][Validators] applying SOLO validators');
-            // Replicados
-            this.setValidators('tipoFator', [Validators.required]);
-            this.setValidators('usoAnterior', [Validators.required]);
-            this.setValidators('usoAtual', [Validators.required]);
-            // Independentes
-            this.setValidators('referencia', [Validators.required]);
-            ['fatorEmissao','soloLAC','soloArenoso'].forEach(f => this.setValidators(f, [this.dec6Validator()]));
+    const tipoAtual = this.currentTipoMudanca;
 
-            const tipoFatorSolo = this.mutForm.get('tipoFator')?.value;
+    // 1) Limpa TODOS os validadores antes de aplicar os do tipo atual
+    Object.keys(this.mutForm.controls).forEach(k => this.mutForm.get(k)?.clearValidators());
 
-            // Correção: usar TipoFatorSolo (não TipoMudanca)
-            if (tipoFatorSolo === this.TipoFatorSolo.USO_ANTERIOR_ATUAL || tipoFatorSolo === 'USO_ANTERIOR_ATUAL') {
-                // USO_ANTERIOR_ATUAL: exige fatorEmissao, LAC/Arenoso opcionais
-                this.setValidators('fatorEmissao', [Validators.required, this.dec6Validator()]);
-                this.setValidators('soloLAC', [this.dec6Validator()]);
-                this.setValidators('soloArenoso', [this.dec6Validator()]);
-            } else if (tipoFatorSolo === this.TipoFatorSolo.SOLO_USO_ANTERIOR_ATUAL || tipoFatorSolo === 'SOLO_USO_ANTERIOR_ATUAL') {
-                // SOLO_USO_ANTERIOR_ATUAL: exige ao menos LAC (Arenoso opcional); fatorEmissao opcional
-                this.setValidators('fatorEmissao', [this.dec6Validator()]);
-                this.setValidators('soloLAC', [Validators.required, this.dec6Validator()]);
-                this.setValidators('soloArenoso', [this.dec6Validator()]);
-            }
-        }
-  
-      // Atualiza validade após redefinir/aplicar
-      Object.keys(this.mutForm.controls).forEach(k => this.mutForm.get(k)?.updateValueAndValidity({ emitEvent: false }));
-      console.debug('[MUT][Validators] controls updated');
+    // Campos sempre obrigatórios
+    this.setValidators('tipoMudanca', [Validators.required]);
+    this.setValidators('escopo', [Validators.required]);
+
+    if (tipoAtual === TipoMudanca.DESMATAMENTO) {
+      // Replicados
+      this.setValidators('bioma', [Validators.required]);
+      this.setValidators('valorUnico', [Validators.required]);
+      this.setValidators('uf', [this.ufConditionalValidator()]);
+      // Independentes
+      this.setValidators('nomeFitofisionomia', [Validators.required]);
+      this.setValidators('sigla', [Validators.required]);
+      this.setValidators('categoria', [Validators.required]);
+      this.setValidators('estoqueCarbono', [Validators.required, this.dec6Validator()]);
+    }
+
+    if (tipoAtual === TipoMudanca.VEGETACAO) {
+      // Replicados
+      this.setValidators('parametro', [Validators.required]);
+      this.setValidators('categoriaFitofisionomia', [this.categoriaValidator()]);
+      // Independentes
+      ['amazonia','caatinga','cerrado','mataAtlantica','pampa','pantanal'].forEach(f =>
+        this.setValidators(f, [this.dec6Validator()])
+      );
+    }
+
+    if (tipoAtual === TipoMudanca.SOLO) {
+      // Replicados
+      this.setValidators('tipoFator', [Validators.required]);
+      this.setValidators('usoAnterior', [Validators.required]);
+      this.setValidators('usoAtual', [Validators.required]);
+      // Independentes
+      this.setValidators('referencia', [Validators.required]);
+      ['fatorEmissao','soloLAC','soloArenoso'].forEach(f => this.setValidators(f, [this.dec6Validator()]));
+
+      const tipoFatorSolo = this.mutForm.get('tipoFator')?.value;
+
+      // Regras específicas para TipoFatorSolo
+      if (tipoFatorSolo === this.TipoFatorSolo.USO_ANTERIOR_ATUAL || tipoFatorSolo === 'USO_ANTERIOR_ATUAL') {
+        this.setValidators('fatorEmissao', [Validators.required, this.dec6Validator()]);
+        this.setValidators('soloLAC', [this.dec6Validator()]);
+        this.setValidators('soloArenoso', [this.dec6Validator()]);
+      } else if (tipoFatorSolo === this.TipoFatorSolo.SOLO_USO_ANTERIOR_ATUAL || tipoFatorSolo === 'SOLO_USO_ANTERIOR_ATUAL') {
+        this.setValidators('fatorEmissao', [this.dec6Validator()]);
+        this.setValidators('soloLAC', [Validators.required, this.dec6Validator()]);
+        this.setValidators('soloArenoso', [this.dec6Validator()]);
+      }
+    }
+
+    // Atualiza validade
+    Object.keys(this.mutForm.controls).forEach(k => this.mutForm.get(k)?.updateValueAndValidity({ emitEvent: false }));
   }
 
   private setValidators(field: string, validators: any[]): void {
@@ -854,9 +782,11 @@ export class MutModalComponent implements OnInit {
 
   // ====================== BUILD REQUEST ======================
   private buildMutRequest(): MutRequest {
-    const data = this.mutForm.getRawValue(); // inclui campos desabilitados
-    // Garante que o estado independente do escopo atual está salvo
+    const data = this.mutForm.getRawValue();
     this.persistIndependentFieldsForScope(this.activeTab);
+
+    // ao editar e mudar de escopo, criamos um novo fator (filhos sem reaproveitar IDs)
+    const isCrossScopeCreate = this.mode === 'edit' && this.fator?.escopo !== this.activeTab;
 
     const req: MutRequest = {
       tipoMudanca: data.tipoMudanca,
@@ -865,38 +795,33 @@ export class MutModalComponent implements OnInit {
 
     if (data.tipoMudanca === TipoMudanca.DESMATAMENTO) {
       const s = this.desmatScope[this.activeTab];
-      const id = this.mode === 'edit' && this.fator?.dadosDesmatamento?.[0]?.id ? this.fator.dadosDesmatamento[0].id : 0;
-
-      // usa exatamente o que está no form (sem forçar valorUnico=true)
-      const ufs: string[] = (data.valorUnico === true || data.valorUnico === 'true') ? [] : (data.uf || []);
-
-      const siglaFinal = (s.sigla as any) || (this.siglaOptions?.[0] as any) || SiglaFitofisionomia.AA;
-      const catFinal = (s.categoria as any) || (this.categoriaOptions?.[0]?.value as any) || CategoriaDesmatamento.F;
+      // 🔧 FIX principal: pinna o id correto do filho que corresponde ao Bioma/ValorÚnico/UFs do formulário
+      const existingChildId = (this.mode === 'edit') ? this.getExistingDesmatChildIdForForm() : 0;
+      const id = isCrossScopeCreate ? 0 : existingChildId;
 
       req.dadosDesmatamento = [{
-            id,
-            bioma: data.bioma,
-            valorUnico: (data.valorUnico === true || data.valorUnico === 'true'),
-            ufs: ufs as any,
-            nomeFitofisionomia: s.nomeFitofisionomia || 'Auto',
-            siglaFitofisionomia: siglaFinal as SiglaFitofisionomia,
-            categoriaDesmatamento: catFinal,
-            estoqueCarbono: this.castNumber(s.estoqueCarbono),
-            fatorCO2: undefined,
-            fatorCH4: undefined,
-            fatorN2O: undefined
-          }];
+        id,
+        bioma: data.bioma,
+        valorUnico: (data.valorUnico === true || data.valorUnico === 'true'),
+        ufs: ((data.valorUnico === true || data.valorUnico === 'true') ? [] : (data.uf || [])) as any,
+        nomeFitofisionomia: s.nomeFitofisionomia,
+        siglaFitofisionomia: s.sigla as SiglaFitofisionomia,
+        categoriaDesmatamento: s.categoria as CategoriaDesmatamento,
+        estoqueCarbono: this.castNumber(s.estoqueCarbono),
+        fatorCO2: undefined,
+        fatorCH4: undefined,
+        fatorN2O: undefined
+      }];
     }
 
     if (data.tipoMudanca === TipoMudanca.SOLO) {
       const s = this.soloScope[this.activeTab];
-      const existing = this.fator?.dadosSolo ? this.fator.dadosSolo : [];
+      const existing = isCrossScopeCreate ? [] : (this.fator?.dadosSolo ? this.fator.dadosSolo : []);
 
       const normalizeTipo = (raw: any) => String(raw || '').toUpperCase().trim().replace(/^SOLO_/, '');
       const usoAnt = String(data.usoAnterior || '').trim();
       const usoAt = String(data.usoAtual || '').trim();
 
-      // Preferir main com MESMO tipo e MESMO par de uso; se não houver, cair em tipo; senão, primeiro main
       let existingMain =
         existing.find(r =>
           normalizeTipo(r.tipoFatorSolo) === normalizeTipo(data.tipoFator) &&
@@ -913,7 +838,7 @@ export class MutModalComponent implements OnInit {
       const tipoFatorSoloFinal = existingMain?.tipoFatorSolo || data.tipoFator;
 
       const mainRecord: MutSoloData = {
-        id: existingMain?.id || 0,
+        id: isCrossScopeCreate ? 0 : (existingMain?.id || 0),
         tipoFatorSolo: tipoFatorSoloFinal,
         valorFator: this.castNumber(s.fatorEmissao) || 0,
         descricao: s.referencia || '',
@@ -929,11 +854,10 @@ export class MutModalComponent implements OnInit {
       if (normalizeTipo(tipoFatorSoloFinal) === normalizeTipo(this.TipoFatorSolo.SOLO_USO_ANTERIOR_ATUAL) ||
           normalizeTipo(tipoFatorSoloFinal) === normalizeTipo(this.TipoFatorSolo.USO_ANTERIOR_ATUAL)) {
 
-        const idLac = existing.find(r => r.fatorCO2 != null)?.id || 0;
-        const idAre = existing.find(r => r.fatorCH4 != null)?.id || 0;
+        const idLac = isCrossScopeCreate ? 0 : (existing.find(r => r.fatorCO2 != null)?.id || 0);
+        const idAre = isCrossScopeCreate ? 0 : (existing.find(r => r.fatorCH4 != null)?.id || 0);
 
-        // ✅ Consolidar LAC (CO2) e Arenoso (CH4) em um único item para o par vazio ("", "")
-        const auxId = idLac || idAre || 0;
+        const auxId = isCrossScopeCreate ? 0 : (idLac || idAre || 0);
         if (s.soloLAC != null || s.soloArenoso != null) {
           const auxRecord: MutSoloData = {
             id: auxId,
@@ -950,13 +874,14 @@ export class MutModalComponent implements OnInit {
         }
       }
 
-      // ✅ Passo de segurança: deduplicar por (tipoFatorSolo, usoAnterior, usoAtual)
       req.dadosSolo = this.mergeDadosSoloByUso(req.dadosSolo);
     }
 
     if (data.tipoMudanca === TipoMudanca.VEGETACAO) {
       const v = this.vegetScope[this.activeTab];
-      const id = this.mode === 'edit' && this.fator?.dadosVegetacao?.[0]?.id ? this.fator.dadosVegetacao[0].id : 0;
+      const existingId = (this.mode === 'edit' && this.fator?.dadosVegetacao?.[0]?.id) ? this.fator.dadosVegetacao[0].id : 0;
+      const id = isCrossScopeCreate ? 0 : existingId;
+
       req.dadosVegetacao = [{
         id,
         categoriasFitofisionomia: (data.categoriaFitofisionomia || []).filter((c: string) => !!c),
@@ -972,6 +897,25 @@ export class MutModalComponent implements OnInit {
     }
 
     return req;
+  }
+
+  // 🔎 Seleciona o id do filho de Desmatamento correspondente ao Bioma/ValorÚnico/UFs atuais
+  private getExistingDesmatChildIdForForm(): number {
+    if (!this.fator?.dadosDesmatamento?.length) return 0;
+
+    const data = this.mutForm.getRawValue();
+    const bioma = data.bioma;
+    const valorUnico = (data.valorUnico === true || data.valorUnico === 'true');
+    const ufsSel: string[] = Array.isArray(data.uf) ? data.uf : [];
+
+    const match = this.fator.dadosDesmatamento.find(r =>
+      r.bioma === bioma &&
+      (!!r.valorUnico === valorUnico) &&
+      (valorUnico ? true : this.sameUfs(r.ufs || [], ufsSel))
+    );
+
+    // fallback para o primeiro filho se não achar correspondência exata
+    return (match?.id ?? this.fator.dadosDesmatamento[0].id) || 0;
   }
 
   private castNumber(v: any): number | undefined {
@@ -992,7 +936,6 @@ export class MutModalComponent implements OnInit {
         continue;
       }
 
-      // Mescla preservando valores não nulos: mantém id existente ou o novo, une fatores
       map.set(key, {
         ...existing,
         id: existing.id || item.id || 0,
@@ -1009,8 +952,8 @@ export class MutModalComponent implements OnInit {
 
   // ====================== DUPLICIDADE & SAVE ======================
   private sameUfs(a?: string[], b?: string[]): boolean {
-    const sa = (a || []).slice().sort();
-    const sb = (b || []).slice().sort();
+    const sa = (a || []).map(x => String(x)).slice().sort();
+    const sb = (b || []).map(x => String(x)).slice().sort();
     if (sa.length !== sb.length) return false;
     for (let i = 0; i < sa.length; i++) {
       if (sa[i] !== sb[i]) return false;
@@ -1024,119 +967,34 @@ export class MutModalComponent implements OnInit {
     const tipo = this.currentTipoMudanca;
     const currentId = this.fator?.id;
 
-    const toNum = (v: any) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : null;
-    };
-
-    // SOLO: valida duplicidade somente por usoAnterior + usoAtual (ignora Tipo de fator e RN008)
+    // SOLO — checagem antecipada (somente create)
     if (tipo === TipoMudanca.SOLO) {
       const usoAnterior = String(this.mutForm.get('usoAnterior')?.value || '').trim();
       const usoAtual = String(this.mutForm.get('usoAtual')?.value || '').trim();
-      const escopoAtual = escopo;
 
-      // Se não tiver par de uso, não valida duplicidade
-      if (!usoAnterior || !usoAtual) {
-        return true;
-      }
+      if (this.mode === 'edit' || !usoAnterior || !usoAtual) return true;
 
-      // 1) Checa no escopo atual pelo par de uso (sem fallback por referência)
-      const isCurrentOk = await new Promise<boolean>((resolve) => {
-        this.mutService.buscarSoloPorUsoAnteriorAtual(escopoAtual, '', usoAnterior, usoAtual, '').subscribe({
-          next: (found) => {
-            const isDuplicate = !!found && (!currentId || found.id !== currentId);
-            if (isDuplicate) {
-              this.duplicateExists = true;
-              const msg = this.buildDuplicateMessage();
-              this.notificationService.warning(`${msg} Registro de Solo já existe neste ${this.getEscopoLabel(escopoAtual)}.`);
-              resolve(false);
-            } else {
-              resolve(true);
-            }
-          },
-          error: () => resolve(true)
-        });
-      });
+      const normalizeTipo = (raw: any) => String(raw || '').toUpperCase().trim().replace(/^SOLO_/, '');
+      const tipoFatorSel = normalizeTipo(this.mutForm.get('tipoFator')?.value);
 
-      if (!isCurrentOk) return false;
-
-      // 2) Checa no outro escopo pelo mesmo par de uso
-      const otherEscopo = escopoAtual === EscopoEnum.ESCOPO1 ? EscopoEnum.ESCOPO3 : EscopoEnum.ESCOPO1;
-
-      const isOtherOk = await new Promise<boolean>((resolve) => {
-        this.mutService.buscarSoloPorUsoAnteriorAtual(otherEscopo, '', usoAnterior, usoAtual, '').subscribe({
-          next: (foundOther) => {
-            if (foundOther) {
-              this.duplicateExists = true;
-              const msg = this.buildDuplicateMessage();
-              this.notificationService.warning(`${msg} Registro de Solo já existe no ${this.getEscopoLabel(otherEscopo)}.`);
-              resolve(false);
-            } else {
-              resolve(true);
-            }
-          },
-          error: () => resolve(true)
-        });
-      });
-
-      return isOtherOk;
-    }
-
-    // DESMATAMENTO: valores independentes por escopo (nome + sigla + categoria + estoque) + Bioma+UFs
-    if (tipo === TipoMudanca.DESMATAMENTO) {
-      const d = this.desmatScope[this.activeTab];
-      const nome = String(d?.nomeFitofisionomia || '').trim().toLowerCase();
-      const sigla = String(d?.sigla || '').trim().toUpperCase();
-      const categoria = String(d?.categoria || '').trim().toUpperCase();
-      const estoque = toNum(d?.estoqueCarbono);
-      const bioma = data.bioma;
-      const ufs = data.uf || [];
-
-      if (!nome && !sigla && !categoria && estoque == null) {
-        return true;
-      }
-
-      return await new Promise<boolean>((resolve) => {
-        this.mutService.listar({ tipoMudanca: TipoMudanca.DESMATAMENTO, escopo, page: 0, size: 500 }).subscribe({
+      const isOk = await new Promise<boolean>((resolve) => {
+        this.mutService.listar({ tipoMudanca: TipoMudanca.SOLO, escopo, page: 0, size: 500 }).subscribe({
           next: (resp) => {
             const lista = resp?.content || [];
-            
-            // Check for duplicate by independent fields (nome + sigla + categoria + estoque)
-            const dupByFields = lista.find(item => {
-              const r = item.dadosDesmatamento?.[0];
-              if (!r) return false;
-              return (
-                String(r.nomeFitofisionomia || '').trim().toLowerCase() === nome &&
-                String(r.siglaFitofisionomia || '').trim().toUpperCase() === sigla &&
-                String(r.categoriaDesmatamento || '').trim().toUpperCase() === categoria &&
-                toNum(r.estoqueCarbono) === estoque
+            const found = lista.find(item => {
+              const main = (item.dadosSolo || []).find(r =>
+                String(r?.usoAnterior || '').trim().toLowerCase() === usoAnterior.toLowerCase() &&
+                String(r?.usoAtual || '').trim().toLowerCase() === usoAtual.toLowerCase() &&
+                (r?.fatorCO2 == null && r?.fatorCH4 == null) &&
+                normalizeTipo(r?.tipoFatorSolo) === tipoFatorSel
               );
+              return !!main;
             });
-            
-            // Check for duplicate by Bioma+UFs (database constraint)
-            const dupByBiomaUfs = lista.find(item => {
-              const r = item.dadosDesmatamento?.[0];
-              if (!r) return false;
-              return (
-                r.bioma === bioma &&
-                this.sameUfs(r.ufs || [], ufs)
-              );
-            });
-            
-            const isDuplicateFields = !!dupByFields && (!currentId || dupByFields.id !== currentId);
-            const isDuplicateBiomaUfs = !!dupByBiomaUfs && (!currentId || dupByBiomaUfs.id !== currentId);
-            
-            if (isDuplicateFields) {
+
+            if (found) {
               this.duplicateExists = true;
               const msg = this.buildDuplicateMessage();
-              this.notificationService.warning(msg);
-              this.tryUpdateExistingDesmatOnDuplicate();
-              resolve(false);
-            } else if (isDuplicateBiomaUfs) {
-              this.duplicateExists = true;
-              const msg = this.buildDesmatBiomaUfsDuplicateMessage();
-              this.notificationService.warning(`${msg}\n\nAtualizando registro existente.`);
-              this.tryUpdateExistingDesmatByBiomaUfs(dupByBiomaUfs);
+              this.notificationService.warning(`${msg} Já existe registro de Solo com o mesmo Tipo de fator + Uso anterior/atual neste ${this.getEscopoLabel(escopo)}.`);
               resolve(false);
             } else {
               resolve(true);
@@ -1145,10 +1003,19 @@ export class MutModalComponent implements OnInit {
           error: () => resolve(true)
         });
       });
+
+      return isOk;
     }
 
-    // VEGETAÇÃO: chave = Categoria(s) da fitofisionomia + Parâmetro (checa nos dois escopos)
+    // DESMATAMENTO — validação de duplicidade desabilitada no front
+    if (tipo === TipoMudanca.DESMATAMENTO) {
+      return true;
+    }
+
+    // VEGETAÇÃO — validação de duplicidade: apenas no modo "create"
     if (tipo === TipoMudanca.VEGETACAO) {
+      if (this.mode !== 'create') return true; // skip on edit
+
       const escopoAtual: EscopoEnum = escopo;
       const escopoIrmao: EscopoEnum = escopoAtual === EscopoEnum.ESCOPO1 ? EscopoEnum.ESCOPO3 : EscopoEnum.ESCOPO1;
 
@@ -1201,43 +1068,129 @@ export class MutModalComponent implements OnInit {
 
   private async checkDuplicateEarly(): Promise<void> {
     this.duplicateExists = false;
-    console.debug('[MUT][DuplicateEarly] tipo=', this.currentTipoMudanca, 'escopo=', this.mutForm.get('escopo')?.value, 'duplicateExists=', this.duplicateExists);
   }
 
   private async performSave(): Promise<void> {
-    console.info('[MUT][Save] start | mode=', this.mode, 'escopo=', this.activeTab);
-
     if (!this.mutForm.valid) {
-      console.warn('[MUT][Save] form invalid', { errors: this.mutForm.errors, controls: this.mutForm });
       this.markFormGroupTouched();
       this.notifyFormErrors();
       return;
     }
 
-    // ✅ Validação de duplicidade por escopo antes de salvar
     const canProceed = await this.validateDuplicateEntry();
-    if (!canProceed) {
-      console.warn('[MUT][Save] bloqueado por duplicidade no escopo.');
+    if (!canProceed) return;
+
+    // Tipo atual e mudança de escopo calculada do formulário
+    const tipoAtual = this.currentTipoMudanca;
+    const escopoForm = this.mutForm.get('escopo')?.value as EscopoEnum;
+    const isEscopoChanged =
+      this.mode === 'edit' &&
+      this.fator &&
+      this.fator.escopo !== escopoForm;
+
+    // === DESMATAMENTO: evitar POST quando há mudança de escopo (mitigar 500/ux_desm_ufs_escopo) ===
+    if (tipoAtual === TipoMudanca.DESMATAMENTO && isEscopoChanged) {
+      const data = this.mutForm.getRawValue();
+      const bioma = data.bioma;
+      const valorUnico = (data.valorUnico === true || data.valorUnico === 'true');
+      const ufsSel: string[] = Array.isArray(data.uf) ? data.uf : [];
+
+      this.isLoading = true;
+
+      this.mutService.listar({
+        tipoMudanca: TipoMudanca.DESMATAMENTO,
+        escopo: escopoForm,
+        page: 0,
+        size: 500
+      }).subscribe({
+        next: (resp) => {
+          const lista = resp?.content || [];
+          const found = lista.find(item => {
+            const r = item.dadosDesmatamento?.[0];
+            if (!r) return false;
+            const matchBioma = r.bioma === bioma;
+            const matchVu = !!r.valorUnico === valorUnico;
+            const matchUfs = valorUnico ? true : this.sameUfs(r.ufs || [], ufsSel);
+            return matchBioma && matchVu && matchUfs;
+          });
+
+          if (found && found.id) {
+            // Atualiza o existente no escopo alvo (PUT), evitando POST + replicação
+            this.activeTab = escopoForm;
+            this.mutForm.patchValue({ escopo: escopoForm }, { emitEvent: false });
+            this.fator = found;
+            this.mode = 'edit';
+
+            const mutRequest = this.buildMutRequest();
+            this.mutService.atualizar(found.id, mutRequest).subscribe({
+              next: (response) => {
+                this.isLoading = false;
+                if (this.notifyInModal) {
+                  this.notificationService.success(MESSAGES.MUT.SUCESSO_ATUALIZAR);
+                }
+                this.fator = response;
+                this.populateForm();
+                this.save.emit(response);
+              },
+              error: (err) => {
+                this.isLoading = false;
+                this.handleSaveError(err, 'update-existing');
+              }
+            });
+          } else {
+            // Sem registro igual no escopo alvo → criar normalmente
+            const mutRequest = this.buildMutRequest();
+            this.mutService.criar(mutRequest).subscribe({
+              next: (response) => {
+                this.isLoading = false;
+                if (this.notifyInModal) {
+                  this.notificationService.success(MESSAGES.MUT.SUCESSO_CRIAR);
+                }
+                this.fator = response;
+                this.populateForm();
+                this.save.emit(response);
+              },
+              error: (err) => {
+                this.isLoading = false;
+                this.handleSaveError(err, 'create');
+              }
+            });
+          }
+        },
+        error: () => {
+          // Se falhar a listagem, prioriza PUT para evitar POST que dispara replicação
+          const mutRequest = this.buildMutRequest();
+          this.mutService.atualizar(this.fator!.id, mutRequest).subscribe({
+            next: (response) => {
+              this.isLoading = false;
+              if (this.notifyInModal) {
+                this.notificationService.success(MESSAGES.MUT.SUCESSO_ATUALIZAR);
+              }
+              this.fator = response;
+              this.populateForm();
+              this.save.emit(response);
+            },
+            error: (err) => {
+              this.isLoading = false;
+              this.handleSaveError(err, 'edit');
+            }
+          });
+        }
+      });
+
+      // Não seguir o fluxo padrão quando DESMATAMENTO mudou de escopo
       return;
     }
 
+    // === Fluxo padrão (SOLO/VEGETAÇÃO, ou DESMATAMENTO sem mudança de escopo) ===
     const mutRequest = this.buildMutRequest();
-    console.info('[MUT][Save] request built', mutRequest);
-
-    // Detecta mudança de escopo ao editar: cria um novo fator em vez de atualizar o existente
-    const isEscopoChanged = this.mode === 'edit' && this.fator && this.fator.escopo !== mutRequest.escopo;
-
     const operation = (this.mode === 'create' || isEscopoChanged)
       ? this.mutService.criar(mutRequest)
       : this.mutService.atualizar(this.fator!.id, mutRequest);
 
-    console.info('[MUT][Save] operation=', ((this.mode === 'create' || isEscopoChanged) ? 'POST' : 'PUT'),
-                 'url-id=', (isEscopoChanged ? 'new' : this.fator?.id));
-
     this.isLoading = true;
     operation.subscribe({
       next: (response) => {
-        console.info('[MUT][Save] success', response);
         this.isLoading = false;
 
         if (this.notifyInModal) {
@@ -1247,44 +1200,142 @@ export class MutModalComponent implements OnInit {
         }
 
         this.fator = response;
-        // Recarrega mapas para o escopo salvo
         this.populateForm();
         this.save.emit(response);
       },
       error: (err: any) => {
-        console.error('[MUT][Save] error raw', err);
         this.isLoading = false;
         this.handleSaveError(err, (isEscopoChanged ? 'update-existing' : this.mode));
       }
     });
   }
 
-  private handleSaveError(error: any, operation: 'edit' | 'create' | 'update-existing'): void {
-    console.error('Erro ao salvar fator MUT:', error);
-
-    console.log('➡️ Backend error', {
-      status: error?.status,
-      codigo: error?.error?.codigo,
-      mensagem: error?.error?.mensagem || error?.message,
-      idExistente: error?.error?.idExistente,
-      raw: error
+  // ===== Novo helper: procura registro de Desmatamento por Bioma/ValorÚnico/UFs nos 2 escopos =====
+  private findExistingDesmatByBiomaUfsAcrossScopes(
+    bioma: Bioma | string,
+    valorUnico: boolean,
+    ufs: string[],
+    escopoPreferido: EscopoEnum
+  ): Promise<any | null> {
+    const checkIn = (e: EscopoEnum) => new Promise<any | null>((resolve) => {
+      this.mutService.listar({ tipoMudanca: TipoMudanca.DESMATAMENTO, escopo: e, page: 0, size: 500 }).subscribe({
+        next: (resp) => {
+          const lista = resp?.content || [];
+          const found = lista.find(item => {
+            const r = item.dadosDesmatamento?.[0];
+            if (!r) return false;
+            const matchBioma = r.bioma === bioma;
+            const matchVu = !!r.valorUnico === valorUnico;
+            const matchUfs = valorUnico ? true : this.sameUfs(r.ufs || [], ufs);
+            return matchBioma && matchVu && matchUfs;
+          });
+          resolve(found || null);
+        },
+        error: () => resolve(null)
+      });
     });
 
+    const escopoIrmao = escopoPreferido === EscopoEnum.ESCOPO1 ? EscopoEnum.ESCOPO3 : EscopoEnum.ESCOPO1;
+
+    return new Promise(async (resolve) => {
+      const a = await checkIn(escopoPreferido);
+      if (a) return resolve(a);
+      const b = await checkIn(escopoIrmao);
+      resolve(b);
+    });
+  }
+
+  private handleSaveError(error: any, operation: 'edit' | 'create' | 'update-existing'): void {
     const status = error?.status;
     const codigo = error?.codigo || error?.error?.codigo || '';
-    const mensagem = (error?.mensagem || error?.error?.mensagem || error?.message || '').toString();
+    const mensagem = (error?.mensagem || error?.error?.mensagem || error?.message || error?.statusText || '').toString();
+    const idExistente = error?.error?.idExistente ?? error?.idExistente;
 
-    // Check for DESMATAMENTO Bioma+UFs constraint error first
+    // === DESMATAMENTO: short-circuit se o conflito é com o MESMO registro (evita loop) ===
+    const currentMutId = this.fator?.id;
+    if (
+      this.currentTipoMudanca === TipoMudanca.DESMATAMENTO &&
+      status === 409 &&
+      (codigo === 'RN008_DUPLICIDADE' || /RN008/i.test(codigo)) &&
+      idExistente &&
+      idExistente === currentMutId
+    ) {
+      if (!this.hasTriedDesmatUpdateById) {
+        this.hasTriedDesmatUpdateById = true;
+        this.mutService.buscarPorId(idExistente).subscribe({
+          next: (full) => {
+            this.fator = full;
+            this.mode = 'edit';
+            const mutRequest = this.buildMutRequest(); // agora com o child id correto
+            this.mutService.atualizar(idExistente, mutRequest).subscribe({
+              next: (resp) => { this.save.emit(resp); this.onClose(); },
+              error: (e) => { this.notificationService.warning(this.buildDesmatBiomaUfsDuplicateMessage()); }
+            });
+          },
+          error: () => this.notificationService.warning(this.buildDesmatBiomaUfsDuplicateMessage())
+        });
+      }
+      return;
+    }
+
+    // === DESMATAMENTO: 409 RN008 com idExistente → buscar e atualizar ===
+    if (
+      this.currentTipoMudanca === TipoMudanca.DESMATAMENTO &&
+      status === 409 &&
+      (codigo === 'RN008_DUPLICIDADE' || /RN008/i.test(codigo)) &&
+      idExistente
+    ) {
+      if (this.hasTriedDesmatUpdateById || operation === 'update-existing') {
+        const msg = this.buildDesmatBiomaUfsDuplicateMessage();
+        this.notificationService.warning(msg);
+        return;
+      }
+      this.hasTriedDesmatUpdateById = true;
+
+      this.mutService.buscarPorId(idExistente).subscribe({
+        next: (existente) => {
+          if (existente) {
+            this.tryUpdateExistingDesmatByBiomaUfs(existente);
+          } else {
+            const msg = this.buildDesmatBiomaUfsDuplicateMessage();
+            this.notificationService.warning(`${msg}\nNão foi possível localizar o registro existente para atualizar.`);
+          }
+        },
+        error: () => {
+          const msg = this.buildDesmatBiomaUfsDuplicateMessage();
+          this.notificationService.warning(`${msg}\nNão foi possível localizar o registro existente para atualizar.`);
+        }
+      });
+      return;
+    }
+
+    // === DESMATAMENTO: constraint (mensagem SQL) → auto-editar existente ===
     if (
       this.currentTipoMudanca === TipoMudanca.DESMATAMENTO &&
       (/ux_desm_ufs_escopo|ufs_hash/i.test(mensagem))
     ) {
-      const msg = this.buildDesmatBiomaUfsDuplicateMessage();
-      this.notificationService.warning(msg);
+      if (this.hasTriedDesmatUpdateByBiomaUfs || operation === 'update-existing') {
+        const msg = this.buildDesmatBiomaUfsDuplicateMessage();
+        this.notificationService.warning(msg);
+        return;
+      }
+      this.hasTriedDesmatUpdateByBiomaUfs = true;
+      this.recoverDesmatFromBiomaUfsAndUpdate();
       return;
     }
 
-    // NOVO: Vegetação — índice único categoria+parâmetro por escopo
+    // === DESMATAMENTO: 500 genérico (ERRO_INTERNO) – tratar como possível duplicidade de UFs ===
+    if (
+      this.currentTipoMudanca === TipoMudanca.DESMATAMENTO &&
+      status === 500 &&
+      !this.hasTriedDesmatUpdateByBiomaUfs
+    ) {
+      this.hasTriedDesmatUpdateByBiomaUfs = true;
+      this.recoverDesmatFromBiomaUfsAndUpdate();
+      return;
+    }
+
+    // VEGETAÇÃO índice único
     if (
       this.currentTipoMudanca === TipoMudanca.VEGETACAO &&
       (/ux_veg_categoria_param_escopo/i.test(mensagem))
@@ -1294,7 +1345,7 @@ export class MutModalComponent implements OnInit {
       return;
     }
 
-    // Sinalização ampla de duplicidade (inclui mensagens/códigos alternativos)
+    // duplicidades genéricas
     const isDuplicate409 =
       status === 409 &&
       (
@@ -1303,7 +1354,6 @@ export class MutModalComponent implements OnInit {
         /duplicados|duplicação|RN008|Valores de Solo/i.test(mensagem)
       );
 
-    // ✅ NOVO: tratar também 400 ERRO_VALIDACAO com mensagem de RN008
     const isDuplicate400 =
       status === 400 &&
       (
@@ -1313,8 +1363,7 @@ export class MutModalComponent implements OnInit {
 
     const isDuplicate = isDuplicate409 || isDuplicate400;
 
-    // Opção 1: 409 com idExistente → PUT direto
-    const idExistente = error?.error?.idExistente ?? error?.idExistente;
+    // SOLO com idExistente → atualizar
     if (this.currentTipoMudanca === TipoMudanca.SOLO && isDuplicate && idExistente) {
       this.fator = { id: idExistente, tipoMudanca: this.currentTipoMudanca, escopo: this.activeTab, dadosSolo: this.fator?.dadosSolo || [] } as any;
       this.mode = 'edit';
@@ -1328,39 +1377,76 @@ export class MutModalComponent implements OnInit {
           this.save.emit(resp);
           this.onClose();
         },
-        error: (err2) => {
-          console.error('[MUT][Save] Falha no PUT direto após duplicidade', err2);
+        error: () => {
           this.notificationService.error('Não foi possível atualizar o registro existente (PUT direto).');
         }
       });
       return;
     }
 
-    // Opção 2: duplicidade sem idExistente → tentar localizar e atualizar
+    // DESMATAMENTO com idExistente → atualizar
+    if (this.currentTipoMudanca === TipoMudanca.DESMATAMENTO && isDuplicate && idExistente) {
+      this.mutService.buscarPorId(idExistente).subscribe({
+        next: (found) => {
+          this.fator = found;
+          this.mode = 'edit';
+          const mutRequest = this.buildMutRequest();
+          this.mutService.atualizar(idExistente, mutRequest).subscribe({
+            next: (resp) => {
+              if (this.notifyInModal) {
+                this.notificationService.success('Registro de Desmatamento atualizado.');
+              }
+              this.save.emit(resp);
+              this.onClose();
+            },
+            error: () => {
+              this.notificationService.error('Não foi possível atualizar o registro existente (PUT direto).');
+            }
+          });
+        },
+        error: () => {
+          // Fallback: tenta atualizar mesmo sem carregar totalmente
+          this.fator = { id: idExistente, tipoMudanca: this.currentTipoMudanca, escopo: this.activeTab, dadosDesmatamento: this.fator?.dadosDesmatamento || [] } as any;
+          this.mode = 'edit';
+          const mutRequest = this.buildMutRequest();
+          this.mutService.atualizar(idExistente, mutRequest).subscribe({
+            next: (resp) => {
+              if (this.notifyInModal) {
+                this.notificationService.success('Registro de Desmatamento atualizado.');
+              }
+              this.save.emit(resp);
+              this.onClose();
+            },
+            error: () => {
+              this.notificationService.error('Não foi possível atualizar o registro existente (PUT direto).');
+            }
+          });
+        }
+      });
+      return;
+    }
+
+    // SOLO duplicidade sem idExistente → localizar e atualizar
     if (this.currentTipoMudanca === TipoMudanca.SOLO && isDuplicate && !idExistente) {
-      console.info('[MUT][Duplicate] Detecção de duplicidade (', status, '/', codigo, ') — tentando buscar registro existente para atualizar...');
       this.tryUpdateExistingOnDuplicate();
       return;
     }
 
-    // RN008/Duplicidade – cobrir 409, RN008_DUPLICIDADE, DADOS_DUPLICADOS e mensagens afins
+    // RN008/Duplicidade genérica
     if (
       status === 409 ||
       codigo === 'RN008_DUPLICIDADE' ||
       codigo === 'DADOS_DUPLICADOS' ||
       /RN008|DADOS_DUPLICADOS|duplicados/i.test(mensagem)
     ) {
-      // Para SOLO, tenta atualizar o registro existente com LAC/Arenoso automaticamente
       if (this.currentTipoMudanca === TipoMudanca.SOLO && operation !== 'update-existing') {
         this.tryUpdateExistingOnDuplicate();
         return;
       }
-      // ✅ NOVO: para DESMATAMENTO, tenta atualizar registro existente automaticamente
       if (this.currentTipoMudanca === TipoMudanca.DESMATAMENTO && operation !== 'update-existing') {
         this.tryUpdateExistingDesmatOnDuplicate();
         return;
       }
-      // ✅ Vegetação: usar mensagem estruturada
       if (this.currentTipoMudanca === TipoMudanca.VEGETACAO) {
         const msg = this.buildVegetacaoDuplicateMessage();
         this.notificationService.warning(msg);
@@ -1371,17 +1457,7 @@ export class MutModalComponent implements OnInit {
       return;
     }
 
-    // Detecta duplicidade vinda como 400/ERRO_VALIDACAO do backend (constraint uq_mut_solo_fator_uso)
-    if (status === 400 && codigo === 'ERRO_VALIDACAO' &&
-        /uq_mut_solo_fator_uso|duplicate key value violates unique constraint/i.test(mensagem)) {
-      const msg = this.buildDuplicateMessage();
-      this.notificationService.warning(
-        `${msg}\nEdite o registro existente ou altere os valores para salvar.`
-      );
-      return;
-    }
-
-    // Unicidade de tipo+escopo (não permitir alterar escopo via PUT do mesmo id)
+    // Unicidade tipo+escopo
     if (status === 400 && codigo === 'ERRO_VALIDACAO' && /tipo.*escopo/i.test(mensagem)) {
       const tipoLabel = this.getTipoMudancaLabel(this.currentTipoMudanca);
       this.notificationService.warning(
@@ -1392,117 +1468,36 @@ export class MutModalComponent implements OnInit {
       return;
     }
 
-    // Fallback de erro genérico: mostrar toast contextualizado por tipo
+    // Fallback
     const genericMsg = this.buildGenericErrorMessage(error);
     this.notificationService.error(genericMsg);
   }
 
-  // ====================== GETTERS / LABELS ======================
-  get isEscopo1(): boolean { return this.activeTab === EscopoEnum.ESCOPO1; }
-  get isEscopo3(): boolean { return this.activeTab === EscopoEnum.ESCOPO3; }
-  get currentTipoMudanca(): TipoMudanca { return this.mutForm.get('tipoMudanca')?.value; }
-  get isTipoMudancaDisabled(): boolean { return this.mode === 'edit'; }
+  // ===== Recuperação para 500/constraint no Desmatamento =====
+  private recoverDesmatFromBiomaUfsAndUpdate(): void {
+    const data = this.mutForm.getRawValue();
+    const escopo = data.escopo as EscopoEnum;
+    const bioma = data.bioma;
+    const valorUnico = (data.valorUnico === true || data.valorUnico === 'true');
+    const ufsSel = Array.isArray(data.uf) ? data.uf : [];
 
-  getTipoMudancaLabel(tipo: TipoMudanca): string {
-    const labels = {
-      [TipoMudanca.SOLO]: 'Solo',
-      [TipoMudanca.DESMATAMENTO]: 'Desmatamento',
-      [TipoMudanca.VEGETACAO]: 'Vegetação'
-    } as const;
-    return (labels as any)[tipo] as string;
+    this.findExistingDesmatByBiomaUfsAcrossScopes(bioma, valorUnico, ufsSel, escopo)
+      .then((existente) => {
+        if (existente) {
+          this.tryUpdateExistingDesmatByBiomaUfs(existente);
+        } else {
+          // Sem localizar (pode estar inativo): ao menos notificar claramente
+          const msg = this.buildDesmatBiomaUfsDuplicateMessage();
+          this.notificationService.warning(msg);
+        }
+      })
+      .catch(() => {
+        const msg = this.buildDesmatBiomaUfsDuplicateMessage();
+        this.notificationService.warning(msg);
+      });
   }
 
-  getBiomaLabel(bioma: Bioma | string): string {
-    const key = String(bioma);
-    const byEnumValue: Record<string, string> = {
-      [Bioma.AMAZONIA]: 'Amazônia',
-      [Bioma.CAATINGA]: 'Caatinga',
-      [Bioma.CERRADO]: 'Cerrado',
-      [Bioma.MATA_ATLANTICA]: 'Mata Atlântica',
-      [Bioma.PAMPA]: 'Pampa',
-      [Bioma.PANTANAL]: 'Pantanal'
-    };
-    const byName: Record<string, string> = {
-      AMAZONIA: 'Amazônia',
-      CAATINGA: 'Caatinga',
-      CERRADO: 'Cerrado',
-      MATA_ATLANTICA: 'Mata Atlântica',
-      PAMPA: 'Pampa',
-      PANTANAL: 'Pantanal'
-    };
-    return byEnumValue[key] ?? byName[key.toUpperCase()] ?? key;
-  }
-
-  onTipoFatorChange(): void { this.applyValidatorsByTipo(); }
-
-  onUsoAnteriorChange(): void {
-    this.mutForm.get('usoAtual')?.setValue('');
-    this.mutForm.get('usoAtual')?.updateValueAndValidity();
-  }
-
-  get usoAtualOptions(): string[] {
-    const anterior = this.mutForm.get('usoAnterior')?.value || '';
-    return this.usoAtualMap[anterior] || [];
-  }
-
-  get isSoloTipoUsoAnteriorAtual(): boolean {
-    const tipo = this.mutForm.get('tipoFator')?.value;
-    return this.currentTipoMudanca === this.TipoMudanca.SOLO &&
-           (tipo === this.TipoFatorSolo.USO_ANTERIOR_ATUAL || tipo === 'USO_ANTERIOR_ATUAL');
-  }
-
-  get isSoloTipoSoloUso(): boolean {
-    const tipo = this.mutForm.get('tipoFator')?.value;
-    return this.currentTipoMudanca === this.TipoMudanca.SOLO &&
-           (tipo === this.TipoFatorSolo.SOLO_USO_ANTERIOR_ATUAL || tipo === 'SOLO_USO_ANTERIOR_ATUAL');
-  }
-
-  onParametroChange(event: any): void {
-    const novoValor = event?.target?.value ?? event;
-    const ctrl = this.mutForm.get('parametro');
-    ctrl?.setValue(novoValor);
-    ctrl?.markAsTouched();
-    ctrl?.updateValueAndValidity();
-  }
-
-  private getTipoFatorLabel(tipo: TipoFatorSolo | string | null | undefined): string {
-    const raw = (typeof tipo === 'string' ? tipo : (tipo as any)) ?? '';
-    const key = String(raw).toUpperCase();
-    switch (key) {
-      case 'USO_ANTERIOR_ATUAL':
-      case 'SOLO_USO_ANTERIOR_ATUAL':
-        return 'Uso anterior/atual';
-      default:
-        return key || 'Tipo de fator';
-    }
-  }
-
-  private getCategoriaLabel(sigla: SiglaFitofisionomia | string | null | undefined): string {
-    const key = String(sigla ?? '').toUpperCase();
-    switch (key) {
-      case 'F': return 'F - Floresta';
-      case 'G': return 'G - Campo';
-      case 'OFL': return 'OFL - Outras Formações Lenhosas';
-      case 'O': return 'O - Outras';
-      default: return key || 'Categoria da fitofisionomia';
-    }
-  }
-
-  onValorUnicoChange(): void {
-    const valorUnico = this.mutForm.get('valorUnico')?.value;
-    const ufControl = this.mutForm.get('uf');
-
-    if (valorUnico === true || valorUnico === 'true') {
-      ufControl?.disable({ emitEvent: false });
-      ufControl?.setValue([], { emitEvent: false });
-      ufControl?.clearValidators();
-    } else {
-      ufControl?.enable({ emitEvent: false });
-      ufControl?.setValidators([this.ufConditionalValidator()]);
-    }
-    ufControl?.updateValueAndValidity();
-  }
-
+  // ====================== SOLO: auto-update em duplicidade ======================
   private tryUpdateExistingOnDuplicate(): void {
     const data = this.mutForm.getRawValue();
     const escopo = data.escopo as EscopoEnum;
@@ -1510,10 +1505,6 @@ export class MutModalComponent implements OnInit {
     const usoAnterior = data.usoAnterior;
     const usoAtual = data.usoAtual;
 
-    console.info('[MUT][Duplicate] Tentando atualizar registro existente com LAC/Arenoso', {
-      escopo, tipoFator, usoAnterior, usoAtual
-    });
-
     const s = this.soloScope[this.activeTab];
     const referencia = s?.referencia || '';
     const fatorEmissao = this.castNumber(s?.fatorEmissao);
@@ -1522,7 +1513,6 @@ export class MutModalComponent implements OnInit {
 
     this.isLoading = true;
 
-    // ✅ NOVO: primeiro tenta encontrar por RN008 (referência + valores)
     this.mutService.buscarSoloPorRN008(escopo, tipoFator, referencia, fatorEmissao, soloLAC, soloArenoso).subscribe({
       next: (foundByValues) => {
         if (foundByValues && foundByValues.id) {
@@ -1530,102 +1520,80 @@ export class MutModalComponent implements OnInit {
           this.mode = 'edit';
           const mutRequest = this.buildMutRequest();
 
-          console.info('[MUT][Duplicate] RN008 encontrado. Atualizando registro existente', { id: foundByValues.id, mutRequest });
-
           this.mutService.atualizar(foundByValues.id, mutRequest).subscribe({
-              next: (resp) => {
-                console.info('[MUT][Duplicate] Atualização concluída via RN008', resp);
-                this.isLoading = false;
-                if (this.notifyInModal) {
-                  this.notificationService.success('Registro de Solo atualizado com LAC/Arenoso.');
-                }
-                this.save.emit(resp);
-                this.onClose();
-              },
-            error: (err) => {
-              console.log('➡️ Backend error', {
-                status: err?.status,
-                codigo: err?.error?.codigo,
-                mensagem: err?.error?.mensagem || err?.message,
-                idExistente: err?.error?.idExistente,
-                raw: err
-              });
-              console.error('[MUT][Duplicate] Falha ao atualizar via RN008', err);
-              // Fallback para busca por usoAnterior/usoAtual
+            next: (resp) => {
+              this.isLoading = false;
+              if (this.notifyInModal) {
+                this.notificationService.success('Registro de Solo atualizado com LAC/Arenoso.');
+              }
+              this.save.emit(resp);
+              this.onClose();
+            },
+            error: () => {
+              // Fallback por uso
               this.updateByUsoAnteriorAtualFallback(escopo, tipoFator, usoAnterior, usoAtual);
             }
           });
           return;
         }
 
-        // Fallback: buscar por usoAnterior/usoAtual
+        // Fallback por uso
         this.updateByUsoAnteriorAtualFallback(escopo, tipoFator, usoAnterior, usoAtual);
       },
-      error: (err) => {
-        console.error('[MUT][Duplicate] Falha na busca RN008', err);
-        // Fallback: buscar por usoAnterior/usoAtual
+      error: () => {
         this.updateByUsoAnteriorAtualFallback(escopo, tipoFator, usoAnterior, usoAtual);
       }
     });
   }
 
-  private tryUpdateExistingOnDuplicateInEscopo(targetEscopo: EscopoEnum): void {
-    const data = this.mutForm.getRawValue();
-    const tipoFator = data.tipoFator;
-    const usoAnterior = data.usoAnterior;
-    const usoAtual = data.usoAtual;
-
-    console.info('[MUT][Duplicate][CrossScope] Tentando atualizar registro existente no outro escopo com LAC/Arenoso', {
-      targetEscopo, tipoFator, usoAnterior, usoAtual
-    });
-
+  private updateByUsoAnteriorAtualFallback(
+    escopo: EscopoEnum,
+    tipoFator: string,
+    usoAnterior: string,
+    usoAtual: string
+  ): void {
     const s = this.soloScope[this.activeTab];
     const referencia = s?.referencia || '';
-    const fatorEmissao = this.castNumber(s?.fatorEmissao);
-    const soloLAC = this.castNumber(s?.soloLAC);
-    const soloArenoso = this.castNumber(s?.soloArenoso);
 
-    this.isLoading = true;
-
-    // Primeiro tenta localizar por RN008 no escopo alvo
-    this.mutService.buscarSoloPorRN008(targetEscopo, tipoFator, referencia, fatorEmissao, soloLAC, soloArenoso).subscribe({
-      next: (foundByValues) => {
-        if (foundByValues && foundByValues.id) {
-          this.fator = foundByValues;
-          this.mode = 'edit';
-          const mutRequest = this.buildMutRequest();
-
-          console.info('[MUT][Duplicate][CrossScope] RN008 encontrado no outro escopo. Atualizando registro existente', { id: foundByValues.id, mutRequest });
-
-          this.mutService.atualizar(foundByValues.id, mutRequest).subscribe({
-            next: (resp) => {
-              this.isLoading = false;
-              if (this.notifyInModal) {
-                this.notificationService.success('Registro de Solo atualizado no outro escopo com LAC/Arenoso.');
-              }
-              this.save.emit(resp);
-              this.onClose();
-            },
-            error: (err) => {
-              console.error('[MUT][Duplicate][CrossScope] Falha ao atualizar via RN008 no outro escopo', err);
-              // Fallback para busca por usoAnterior/usoAtual
-              this.updateByUsoAnteriorAtualFallback(targetEscopo, tipoFator, usoAnterior, usoAtual);
-            }
-          });
+    this.mutService.buscarSoloPorUsoAnteriorAtual(escopo, tipoFator, usoAnterior, usoAtual, referencia).subscribe({
+      next: (found) => {
+        if (!found || !found.id) {
+          this.duplicateExists = true;
+          const msg = this.buildDuplicateMessage();
+          this.notificationService.warning(`${msg}\nEdite o registro existente ou altere os valores para salvar.`);
+          this.isLoading = false;
           return;
         }
 
-        // Fallback: buscar por usoAnterior/usoAtual no escopo alvo
-        this.updateByUsoAnteriorAtualFallback(targetEscopo, tipoFator, usoAnterior, usoAtual);
+        this.fator = found;
+        this.mode = 'edit';
+        const mutRequest = this.buildMutRequest();
+
+        this.mutService.atualizar(found.id, mutRequest).subscribe({
+          next: (resp) => {
+            this.isLoading = false;
+            if (this.notifyInModal) {
+              this.notificationService.success('Registro de Solo atualizado com LAC/Arenoso.');
+            }
+            this.save.emit(resp);
+            this.onClose();
+          },
+          error: () => {
+            this.isLoading = false;
+            this.notificationService.error('Não foi possível atualizar o registro existente.');
+          }
+        });
       },
-      error: (err) => {
-        console.error('[MUT][Duplicate][CrossScope] Falha na busca RN008 no outro escopo', err);
-        this.updateByUsoAnteriorAtualFallback(targetEscopo, tipoFator, usoAnterior, usoAtual);
+      error: () => {
+        this.duplicateExists = true;
+        this.isLoading = false;
+        const msg = this.buildDuplicateMessage();
+        this.notificationService.warning(`${msg}\nNão foi possível localizar o registro existente para atualizar.`);
       }
     });
   }
 
-  // ====================== DUPLICIDADE: AUTO-EDIÇÃO PARA DESMATAMENTO ======================
+  // ====================== DESMATAMENTO: auto-edição em duplicidade ======================
   private tryUpdateExistingDesmatOnDuplicate(): void {
     const data = this.mutForm.getRawValue();
     const escopo = data.escopo as EscopoEnum;
@@ -1657,33 +1625,28 @@ export class MutModalComponent implements OnInit {
           this.mode = 'edit';
           const mutRequest = this.buildMutRequest();
 
-          this.mutService.atualizar(encontrado.id, mutRequest).subscribe({
+        this.mutService.atualizar(encontrado.id, mutRequest).subscribe({
             next: (respAtualizado) => {
               this.isLoading = false;
               this.notificationService.success('Registro de Desmatamento atualizado.');
               this.save.emit(respAtualizado);
               this.onClose();
             },
-            error: (err2) => {
+            error: () => {
               this.isLoading = false;
-              console.error('[MUT][Duplicate][DESMAT] Falha no PUT após duplicidade', err2);
               this.notificationService.error('Não foi possível atualizar o registro existente (PUT).');
             }
           });
         } else {
           this.isLoading = false;
           this.duplicateExists = true;
-          console.info('[MUT][Duplicate][DESMAT] Nenhum registro encontrado para edição automática.');
-          // Mostra o toast estruturado com os dados atuais (Bioma/UFs/Valor Único e independentes)
           const msg = this.buildDuplicateMessage();
           this.notificationService.warning(msg);
         }
       },
-      error: (err) => {
+      error: () => {
         this.isLoading = false;
         this.duplicateExists = true;
-        console.error('[MUT][Duplicate][DESMAT] Falha ao listar para localizar duplicata', err);
-        // Em erro, ainda mostramos a mensagem para orientar o usuário
         const msg = this.buildDuplicateMessage();
         this.notificationService.warning(msg);
       }
@@ -1697,87 +1660,64 @@ export class MutModalComponent implements OnInit {
       return;
     }
 
-    this.isLoading = true;
+    const proceedUpdate = (full: any) => {
+      // Garantir que não será tratado como cross-scope create
+      const escopo: EscopoEnum = full.escopo as EscopoEnum;
+      this.activeTab = escopo;
+      this.mutForm.patchValue({ escopo }, { emitEvent: false });
+
+      this.isLoading = true;
+      this.fator = full;
+      this.mode = 'edit';
+      const mutRequest = this.buildMutRequest();
+
+      this.mutService.atualizar(full.id, mutRequest).subscribe({
+        next: (respAtualizado) => {
+          this.isLoading = false;
+          this.notificationService.success('Registro de Desmatamento atualizado com novos dados.');
+          this.save.emit(respAtualizado);
+          this.onClose();
+        },
+        error: (err) => {
+          this.isLoading = false;
+          this.handleSaveError(err, 'update-existing');
+        }
+      });
+    };
+
+    const hasDadosDesmatId = !!existingRecord?.dadosDesmatamento?.[0]?.id;
+    if (!hasDadosDesmatId) {
+      this.mutService.buscarPorId(existingRecord.id).subscribe({
+        next: (full) => proceedUpdate(full || existingRecord),
+        error: () => proceedUpdate(existingRecord)
+      });
+    } else {
+      proceedUpdate(existingRecord);
+    }
+  }
+
+  private switchToSiblingAndLoadExistingDesmat(existingRecord: any): void {
+    const escopo: EscopoEnum = existingRecord?.escopo as EscopoEnum;
+    if (!escopo) return;
+
+    this.activeTab = escopo;
+    this.mutForm.patchValue({ escopo }, { emitEvent: false });
     this.fator = existingRecord;
     this.mode = 'edit';
-    const mutRequest = this.buildMutRequest();
 
-    this.mutService.atualizar(existingRecord.id, mutRequest).subscribe({
-      next: (respAtualizado) => {
-        this.isLoading = false;
-        this.notificationService.success('Registro de Desmatamento atualizado com novos dados.');
-        this.save.emit(respAtualizado);
-        this.onClose();
-      },
-      error: (err2) => {
-        this.isLoading = false;
-        console.error('[MUT][Duplicate][DESMAT][BiomaUfs] Falha no PUT após duplicidade', err2);
-        this.notificationService.error('Não foi possível atualizar o registro existente.');
-      }
-    });
+    const r: MutDesmatamentoData | undefined = existingRecord.dadosDesmatamento?.[0];
+    this.desmatScope[escopo] = {
+      nomeFitofisionomia: String(r?.nomeFitofisionomia || ''),
+      sigla: (this.normalizeSiglaToOption(r?.siglaFitofisionomia) || '') as any,
+      categoria: (r?.categoriaDesmatamento || '') as any,
+      estoqueCarbono: this.castNumber(r?.estoqueCarbono) ?? null
+    } as any;
+
+    this.loadIndependentFieldsForScope(escopo);
   }
 
-  private updateByUsoAnteriorAtualFallback(
-    escopo: EscopoEnum,
-    tipoFator: string,
-    usoAnterior: string,
-    usoAtual: string
-  ): void {
-    const s = this.soloScope[this.activeTab];
-    const referencia = s?.referencia || '';
-    
-    this.mutService.buscarSoloPorUsoAnteriorAtual(escopo, tipoFator, usoAnterior, usoAtual, referencia).subscribe({
-      next: (found) => {
-        if (!found || !found.id) {
-          this.duplicateExists = true;
-          const msg = this.buildDuplicateMessage();
-          this.notificationService.warning(`${msg}\nEdite o registro existente ou altere os valores para salvar.`);
-          this.isLoading = false;
-          return;
-        }
+  // ====================== Toasts / Labels ======================
 
-        this.fator = found;
-        this.mode = 'edit';
-
-        const mutRequest = this.buildMutRequest();
-
-        console.info('[MUT][Duplicate] Atualizando registro existente (fallback por uso)', { id: found.id, mutRequest });
-
-        this.mutService.atualizar(found.id, mutRequest).subscribe({
-          next: (resp) => {
-            console.info('[MUT][Duplicate] Atualização concluída (fallback por uso)', resp);
-            this.isLoading = false;
-            if (this.notifyInModal) {
-              this.notificationService.success('Registro de Solo atualizado com LAC/Arenoso.');
-            }
-            this.save.emit(resp);
-            this.onClose();
-          },
-          error: (err) => {
-            console.log('➡️ Backend error', {
-              status: err?.status,
-              codigo: err?.error?.codigo,
-              mensagem: err?.error?.mensagem || err?.message,
-              idExistente: err?.error?.idExistente,
-              raw: err
-            });
-            console.error('[MUT][Duplicate] Falha ao atualizar registro existente (fallback por uso)', err);
-            this.isLoading = false;
-            this.notificationService.error('Não foi possível atualizar o registro existente.');
-          }
-        });
-      },
-      error: (err) => {
-        console.error('[MUT][Duplicate] Falha na busca de registro existente (fallback por uso)', err);
-        this.duplicateExists = true;
-        this.isLoading = false;
-        const msg = this.buildDuplicateMessage();
-        this.notificationService.warning(`${msg}\nNão foi possível localizar o registro existente para atualizar.`);
-      }
-    });
-  }
-
-  // Toast estruturado para DESMATAMENTO (Bioma + UFs / Valor Único)
   private buildDesmatBiomaUfsDuplicateMessage(): string {
     const data = this.mutForm.getRawValue();
     const escopoLabel = this.getEscopoLabel(data.escopo);
@@ -1799,11 +1739,9 @@ export class MutModalComponent implements OnInit {
       `- UFs: ${ufsDisplay}`,
       '',
       'Ação sugerida: edite o registro existente ou altere os valores.'
-    ]
-    .join('\n');
+    ].join('\n');
   }
 
-  // NOVO: Toast estruturado para VEGETAÇÃO (Categoria + Parâmetro + valores por Bioma)
   private buildVegetacaoDuplicateMessage(): string {
     const data = this.mutForm.getRawValue();
     const escopoLabel = this.getEscopoLabel(data.escopo);
@@ -1812,8 +1750,8 @@ export class MutModalComponent implements OnInit {
     const categoriasDisplay = (categorias && categorias.length) ? categorias.join(', ') : '—';
 
     const v = this.vegetScope[this.activeTab];
-    const toLine = (rotulo: string, v: any) => {
-      const n = Number(v);
+    const toLine = (rotulo: string, val: any) => {
+      const n = Number(val);
       return Number.isFinite(n) ? `  • ${rotulo}: ${n}` : undefined;
     };
 
@@ -1842,7 +1780,6 @@ export class MutModalComponent implements OnInit {
     return lines.join('\n');
   }
 
-  // Toast estruturado para RN008/Duplicidade por tipo
   private buildDuplicateMessage(): string {
     const data = this.mutForm.getRawValue();
     const escopoLabel = this.getEscopoLabel(data.escopo);
@@ -1908,7 +1845,6 @@ export class MutModalComponent implements OnInit {
     return `Duplicidade detectada no escopo ${escopoLabel}. Ajuste os valores ou edite o registro existente.`;
   }
 
-  // Toast estruturado para erros gerais por tipo
   private buildGenericErrorMessage(error: any): string {
     const data = this.mutForm.getRawValue();
     const escopoLabel = this.getEscopoLabel(data.escopo);
@@ -1954,6 +1890,120 @@ export class MutModalComponent implements OnInit {
     }
 
     return `Erro (${escopoLabel}): ${backendMsg}`;
+  }
+
+  // ====================== GETTERS / LABELS ======================
+  get isEscopo1(): boolean { return this.activeTab === EscopoEnum.ESCOPO1; }
+  get isEscopo3(): boolean { return this.activeTab === EscopoEnum.ESCOPO3; }
+  get currentTipoMudanca(): TipoMudanca { return this.mutForm.get('tipoMudanca')?.value; }
+  get isTipoMudancaDisabled(): boolean { return this.mode === 'edit'; }
+
+  getTipoMudancaLabel(tipo: TipoMudanca): string {
+    const labels = {
+      [TipoMudanca.SOLO]: 'Solo',
+      [TipoMudanca.DESMATAMENTO]: 'Desmatamento',
+      [TipoMudanca.VEGETACAO]: 'Vegetação'
+    } as const;
+    return (labels as any)[tipo] as string;
+  }
+
+  getBiomaLabel(bioma: Bioma | string): string {
+    const key = String(bioma);
+    const byEnumValue: Record<string, string> = {
+      [Bioma.AMAZONIA]: 'Amazônia',
+      [Bioma.CAATINGA]: 'Caatinga',
+      [Bioma.CERRADO]: 'Cerrado',
+      [Bioma.MATA_ATLANTICA]: 'Mata Atlântica',
+      [Bioma.PAMPA]: 'Pampa',
+      [Bioma.PANTANAL]: 'Pantanal'
+    };
+    const byName: Record<string, string> = {
+      AMAZONIA: 'Amazônia',
+      CAATINGA: 'Caatinga',
+      CERRADO: 'Cerrado',
+      MATA_ATLANTICA: 'Mata Atlântica',
+      PAMPA: 'Pampa',
+      PANTANAL: 'Pantanal'
+    };
+    return byEnumValue[key] ?? byName[key.toUpperCase()] ?? key;
+  }
+
+  onTipoFatorChange(): void { this.applyValidatorsByTipo(); }
+
+  onUsoAnteriorChange(): void {
+    this.mutForm.get('usoAtual')?.setValue('');
+    this.mutForm.get('usoAtual')?.updateValueAndValidity();
+  }
+
+  get usoAtualOptions(): string[] {
+    const anterior = this.mutForm.get('usoAnterior')?.value || '';
+    return this.usoAtualMap[anterior] || [];
+  }
+
+  get isSoloTipoUsoAnteriorAtual(): boolean {
+    const tipo = this.mutForm.get('tipoFator')?.value;
+    return this.currentTipoMudanca === TipoMudanca.SOLO &&
+           (tipo === this.TipoFatorSolo.USO_ANTERIOR_ATUAL || tipo === 'USO_ANTERIOR_ATUAL');
+  }
+
+  get isSoloTipoSoloUso(): boolean {
+    const tipo = this.mutForm.get('tipoFator')?.value;
+    return this.currentTipoMudanca === TipoMudanca.SOLO &&
+           (tipo === this.TipoFatorSolo.SOLO_USO_ANTERIOR_ATUAL || tipo === 'SOLO_USO_ANTERIOR_ATUAL');
+  }
+
+  onParametroChange(event: any): void {
+    const novoValor = event?.target?.value ?? event;
+    const ctrl = this.mutForm.get('parametro');
+    ctrl?.setValue(novoValor);
+    ctrl?.markAsTouched();
+    ctrl?.updateValueAndValidity();
+  }
+
+  private getTipoFatorLabel(tipo: TipoFatorSolo | string | null | undefined): string {
+    const raw = (typeof tipo === 'string' ? tipo : (tipo as any)) ?? '';
+    const key = String(raw).toUpperCase();
+    switch (key) {
+      case 'USO_ANTERIOR_ATUAL':
+      case 'SOLO_USO_ANTERIOR_ATUAL':
+        return 'Uso anterior/atual';
+      default:
+        return key || 'Tipo de fator';
+    }
+  }
+
+  private getCategoriaLabel(sigla: SiglaFitofisionomia | string | null | undefined): string {
+    const key = String(sigla ?? '').toUpperCase();
+    switch (key) {
+      case 'F': return 'F - Floresta';
+      case 'G': return 'G - Campo';
+      case 'OFL': return 'OFL - Outras Formações Lenhosas';
+      case 'O': return 'O - Outras';
+      default: return key || 'Categoria da fitofisionomia';
+    }
+  }
+
+  onValorUnicoChange(): void {
+    const valorUnico = this.mutForm.get('valorUnico')?.value;
+    const ufControl = this.mutForm.get('uf');
+
+    if (valorUnico === true || valorUnico === 'true') {
+      ufControl?.disable({ emitEvent: false });
+      ufControl?.setValue([], { emitEvent: false });
+      ufControl?.clearValidators();
+    } else {
+      ufControl?.enable({ emitEvent: false });
+      ufControl?.setValidators([this.ufConditionalValidator()]);
+    }
+    ufControl?.updateValueAndValidity();
+  }
+
+  // ====================== Utils ======================
+  private normalizeSiglaToOption(sigla: string | null | undefined): SiglaFitofisionomia | '' {
+    const v = (sigla ?? '').toString();
+    if (!v) return '' as any;
+    const found = this.siglaOptions.find(opt => String(opt).toUpperCase() === v.toUpperCase());
+    return (found as any) ?? '' as any;
   }
 
   private getEscopoLabel(e: EscopoEnum): string {

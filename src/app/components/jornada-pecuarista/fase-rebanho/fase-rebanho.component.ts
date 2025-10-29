@@ -9,6 +9,7 @@ import { CategoriaLoteService, CategoriaLoteRequest, CategoriaLoteResponse } fro
 import { NutricaoAnimalLoteService, NutricaoAnimalLoteRequest, NutricaoAnimalLoteResponse, IngredienteDietaLoteItem, ConcentradoDietaLoteItem, AditivoDietaLoteItem } from '../../../services/nutricao-animal-lote.service';
 import { ManejoDejetosLoteService, ManejoDejetosLoteRequest, ManejoDejetosLoteResponse } from '../../../services/manejo-dejetos-lote.service';
 import { CategoriaCorteService, CategoriaCorte } from '../../../services/categorias-corte.service';
+import { CategoriaLeiteService, CategoriaLeite } from '../../../services/categoria-leite.service';
 import { BancoIngredientesService, IngredienteResponse } from '../../../core/services/banco-ingredientes.service';
 
 export interface LoteRebanho {
@@ -180,6 +181,7 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
   // Estado de expansão/recolhimento do conteúdo do lote ativo
   loteCollapsed = false;
   categoriasCorte: CategoriaCorte[] = [];
+  categoriasLeite: CategoriaLeite[] = [];
   categoriasCorteFiltradas: CategoriaCorte[] = [];
   categoriasFormRows: Array<{
     categoriaCorteId?: number;
@@ -270,6 +272,7 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
     private nutricaoAnimalLoteService: NutricaoAnimalLoteService,
     private manejoDejetosLoteService: ManejoDejetosLoteService,
     private categoriaCorteService: CategoriaCorteService,
+    private categoriaLeiteService: CategoriaLeiteService,
     private bancoIngredientesService: BancoIngredientesService,
     private router: Router
   ) {}
@@ -282,13 +285,16 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
     this.carregarIngredientes();
   }
 
-  ngOnChanges(changes: SimpleChanges): void {
+  async ngOnChanges(changes: SimpleChanges): Promise<void> {
     if (changes['tipoRebanho']) {
       console.log('DEBUG - ngOnChanges tipoRebanho:', {
         previousValue: changes['tipoRebanho'].previousValue,
         currentValue: changes['tipoRebanho'].currentValue,
         firstChange: changes['tipoRebanho'].firstChange
       });
+      
+      // Aguardar o carregamento das categorias antes de atualizar as opções
+      await this.carregarCategoriasCorte();
       this.atualizarOpcoesPorTipo();
     }
   }
@@ -322,12 +328,33 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
 
   private async carregarCategoriasCorte(): Promise<void> {
     try {
+      console.log('DEBUG - Iniciando carregamento de categorias');
+      console.log('DEBUG - Tipo rebanho atual:', this.tipoRebanho);
+      
       const categorias = await firstValueFrom(this.categoriaCorteService.listar());
       this.categoriasCorte = categorias || [];
+      console.log('DEBUG: Categorias de corte carregadas do banco:', this.categoriasCorte);
+      console.log('DEBUG: Quantidade categorias CORTE:', this.categoriasCorte?.length || 0);
+      
+      // Carregar também as categorias de leite
+      try {
+        console.log('DEBUG: Iniciando carregamento das categorias de LEITE...');
+        const categoriasLeite = await firstValueFrom(this.categoriaLeiteService.listar());
+        this.categoriasLeite = categoriasLeite || [];
+        console.log('DEBUG: Categorias de leite carregadas do banco:', this.categoriasLeite);
+        console.log('DEBUG: Quantidade categorias LEITE:', this.categoriasLeite?.length || 0);
+      } catch (leiteError) {
+        console.error('DEBUG: ERRO ao carregar categorias de LEITE:', leiteError);
+        this.categoriasLeite = [];
+      }
+      
+      console.log('DEBUG: Chamando atualizarOpcoesPorTipo...');
       this.atualizarOpcoesPorTipo();
+      console.log('DEBUG: atualizarOpcoesPorTipo executado com sucesso');
     } catch (error) {
-      console.warn('Falha ao carregar categorias de corte:', error);
+      console.warn('Falha ao carregar categorias:', error);
       this.categoriasCorte = [];
+      this.categoriasLeite = [];
     }
   }
 
@@ -349,7 +376,10 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
   private getCategoriaCorteLabelById(id?: number): string {
     if (!id) return '';
     const c = this.categoriasCorte.find(x => x.id === id);
-    return c ? c.categoria : '';
+    if (!c) return '';
+    
+    // Usar a mesma padronização da função getCategoriaCorteLabel
+    return this.getCategoriaCorteLabel(id);
   }
 
   categoriaExigeCamposAdicionais(row: { categoriaCorteId?: number }): boolean {
@@ -746,6 +776,42 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
           console.warn('Falha ao carregar nutrição do lote', lote.id, err);
         }
       }
+
+      // Após carregar todos os dados, configurar expansão baseada no preenchimento
+      for (const lote of this.lotes) {
+        if (!lote.id) continue;
+        const loteId = lote.id;
+        const categorias = this.categoriasPorLoteId[loteId] || [];
+        
+        // Verificar se cada seção precisa de preenchimento para pelo menos uma categoria
+        let pastejoPrecisa = false;
+        let ingredientesPrecisa = false;
+        let concentradoPrecisa = false;
+        let aditivoPrecisa = false;
+
+        for (let i = 0; i < categorias.length; i++) {
+          if (this.secaoPastejoPrecisaPreenchimento(loteId, i)) {
+            pastejoPrecisa = true;
+          }
+          if (this.secaoIngredientesPrecisaPreenchimento(loteId, i)) {
+            ingredientesPrecisa = true;
+          }
+          if (this.secaoConcentradoPrecisaPreenchimento(loteId, i)) {
+            concentradoPrecisa = true;
+          }
+          if (this.secaoAditivoPrecisaPreenchimento(loteId, i)) {
+            aditivoPrecisa = true;
+          }
+        }
+
+        // Expandir apenas as seções que precisam de preenchimento
+        this.sectionsExpandedByLoteId[loteId] = {
+          pastejo: pastejoPrecisa,
+          ingredientes: ingredientesPrecisa,
+          concentrado: concentradoPrecisa,
+          aditivo: aditivoPrecisa
+        };
+      }
     } catch (error) {
       console.warn('Falha ao inicializar dados de Nutrição para lotes:', error);
     }
@@ -894,6 +960,28 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
           }
         }
       }
+      
+      // Após carregar os dados, verificar quais sub-abas precisam de preenchimento e expandir automaticamente
+      const categorias = this.categoriasPorLoteId[loteId] || [];
+      const sectionsToExpand = { pastejo: false, ingredientes: false, concentrado: false, aditivo: false };
+      
+      for (let i = 0; i < categorias.length; i++) {
+        if (this.secaoPastejoPrecisaPreenchimento(loteId, i)) {
+          sectionsToExpand.pastejo = true;
+        }
+        if (this.secaoIngredientesPrecisaPreenchimento(loteId, i)) {
+          sectionsToExpand.ingredientes = true;
+        }
+        if (this.secaoConcentradoPrecisaPreenchimento(loteId, i)) {
+          sectionsToExpand.concentrado = true;
+        }
+        if (this.secaoAditivoPrecisaPreenchimento(loteId, i)) {
+          sectionsToExpand.aditivo = true;
+        }
+      }
+      
+      // Aplicar a expansão das sub-abas
+      this.sectionsExpandedByLoteId[loteId] = sectionsToExpand;
     } catch (error) {
       console.warn(`Falha ao inicializar dados de Nutrição para lote ${loteId}:`, error);
     }
@@ -1034,6 +1122,28 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
         // Garantir estruturas e expansão
         this.sectionsExpandedByLoteId[id] = this.sectionsExpandedByLoteId[id] || { pastejo: false, ingredientes: false, concentrado: false, aditivo: false };
         this.expandedNutriLotes[id] = true;
+        
+        // Verificar se o lote precisa de preenchimento e expandir automaticamente
+        if (this.lotePrecisaPreenchimento(id)) {
+          this.expandedNutriLotes[id] = true;
+          
+          // Expandir sub-abas que precisam de preenchimento
+          const categorias = this.categoriasPorLoteId[id] || [];
+          for (let i = 0; i < categorias.length; i++) {
+            if (this.secaoPastejoPrecisaPreenchimento(id, i)) {
+              this.sectionsExpandedByLoteId[id].pastejo = true;
+            }
+            if (this.secaoIngredientesPrecisaPreenchimento(id, i)) {
+              this.sectionsExpandedByLoteId[id].ingredientes = true;
+            }
+            if (this.secaoConcentradoPrecisaPreenchimento(id, i)) {
+              this.sectionsExpandedByLoteId[id].concentrado = true;
+            }
+            if (this.secaoAditivoPrecisaPreenchimento(id, i)) {
+              this.sectionsExpandedByLoteId[id].aditivo = true;
+            }
+          }
+        }
       }
     }
   }
@@ -1431,10 +1541,100 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
     this.sectionsExpandedByLoteId[loteId] = state;
   }
 
+  // Métodos auxiliares para determinar se uma seção precisa de preenchimento
+  private secaoPastejoPrecisaPreenchimento(loteId: number, categoriaIndex: number): boolean {
+    const nutricaoLote = this.nutricao.find(n => n.loteId === loteId);
+    // Se o sistema de produção for CONFINADO, pastejo não é obrigatório
+    if (nutricaoLote?.sistemaProducao === 'CONFINADO') {
+      return false;
+    }
+    
+    const pastejo = this.pastejoByLoteId[loteId]?.[categoriaIndex] || {};
+    return pastejo?.horasPorDia == null || pastejo?.diasPorAno == null;
+  }
+
+  private secaoIngredientesPrecisaPreenchimento(loteId: number, categoriaIndex: number): boolean {
+    const ingrediente = this.ingredientesByLoteId[loteId]?.[categoriaIndex] || {};
+    return !(ingrediente?.ingrediente || '').trim() || 
+           ingrediente?.quantidadeKgCabDia == null || 
+           ingrediente?.ofertaDiasAno == null || 
+           ingrediente?.producao == null;
+  }
+
+  private secaoConcentradoPrecisaPreenchimento(loteId: number, categoriaIndex: number): boolean {
+    const concentrado = this.concentradoByLoteId[loteId]?.[categoriaIndex] || {};
+    return (concentrado?.proteinaBrutaPercentual == null && 
+            !concentrado?.ureia?.trim() && 
+            !concentrado?.subproduto?.trim()) || 
+           concentrado?.quantidade == null || 
+           concentrado?.oferta == null;
+  }
+
+  private secaoAditivoPrecisaPreenchimento(loteId: number, categoriaIndex: number): boolean {
+    const aditivo = this.aditivoByLoteId[loteId]?.[categoriaIndex] || {};
+    return !aditivo?.tipo?.trim() || 
+           aditivo?.dose == null || 
+           aditivo?.oferta == null || 
+           aditivo?.percentualAdicional == null;
+  }
+
+  private lotePrecisaPreenchimento(loteId: number): boolean {
+    const categorias = this.categoriasPorLoteId[loteId] || [];
+    
+    for (let i = 0; i < categorias.length; i++) {
+      if (this.secaoPastejoPrecisaPreenchimento(loteId, i) ||
+          this.secaoIngredientesPrecisaPreenchimento(loteId, i) ||
+          this.secaoConcentradoPrecisaPreenchimento(loteId, i) ||
+          this.secaoAditivoPrecisaPreenchimento(loteId, i)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
   getCategoriaCorteLabel(id?: number): string {
     if (!id) return '';
+    
+    // Para tipo LEITE, buscar na lista de categorias de leite
+    if (this.tipoRebanho === 'LEITE') {
+      const catLeite = this.categoriasLeite.find(c => c.id === id);
+      if (catLeite) {
+        const categoria = catLeite.categoria.toLowerCase();
+        
+        // Mapear categorias de leite para labels padronizados
+        if (categoria.includes('bezerr')) return 'Bezerro';
+        if (categoria.includes('novilha')) return 'Novilha';
+        // Verificar primeiro "vaca seca" antes de "vaca leiteira" para evitar conflitos
+        if (categoria.includes('vaca') && categoria.includes('sec') && !categoria.includes('confin')) return 'Vaca seca';
+        if (categoria.includes('vaca') && categoria.includes('leit')) return 'Vaca leiteira';
+        if (categoria.includes('touro')) return 'Touro';
+        
+        // Fallback para o valor original da categoria de leite
+        return catLeite.categoria;
+      }
+    }
+    
+    // Para tipo CORTE ou fallback, buscar na lista de categorias de corte
     const cat = this.categoriasCorte.find(c => c.id === id);
-    return cat ? cat.categoria : '';
+    if (!cat) return '';
+    
+    const categoria = cat.categoria.toLowerCase();
+    
+    // Para tipo CORTE
+    if (this.tipoRebanho === 'CORTE') {
+      if (categoria.includes('bezerr')) return 'Bezerro';
+      if (categoria.includes('novilho')) return 'Novilho';
+      if (categoria.includes('novilha')) return 'Novilha';
+      if (categoria.includes('boi') && categoria.includes('confin')) return 'Boi confinado';
+      if (categoria.includes('boi')) return 'Boi';
+      if (categoria.includes('vaca') && categoria.includes('confin')) return 'Vaca confinada';
+      if (categoria.includes('vaca')) return 'Vaca';
+      if (categoria.includes('touro')) return 'Touro';
+    }
+    
+    // Fallback para o valor original
+    return cat.categoria;
   }
 
   // Cards de lote: expandir/recolher
@@ -3019,77 +3219,86 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   private atualizarOpcoesPorTipo(): void {
+    console.log('DEBUG: atualizarOpcoesPorTipo iniciado');
     const tipo = (this.tipoRebanho || '').toUpperCase();
+    console.log('DEBUG: Tipo rebanho:', tipo);
+    console.log('DEBUG: categoriasCorte disponíveis:', this.categoriasCorte?.length || 0);
+    console.log('DEBUG: categoriasLeite disponíveis:', this.categoriasLeite?.length || 0);
     
-    console.log('DEBUG - atualizarOpcoesPorTipo:', {
-      tipoRebanhoOriginal: this.tipoRebanho,
-      tipoUpperCase: tipo,
-      categoriasAnimaisLeite: this.categoriasAnimaisLeite,
-      categoriasAnimaisCorte: this.categoriasAnimaisCorte
-    });
-
-    // Opções do select de categorias animais (modal de manejo)
+    // Opções do select de categorias animais (modal de manejo) - padronizadas
     if (tipo === 'LEITE') {
-      this.categoriasAnimaisOpcoes = this.categoriasAnimaisLeite;
-      console.log('DEBUG - Definindo opções para LEITE:', this.categoriasAnimaisOpcoes);
+      this.categoriasAnimaisOpcoes = [...this.categoriasAnimaisLeite];
+      console.log('DEBUG: Definindo categoriasAnimaisOpcoes para LEITE:', this.categoriasAnimaisOpcoes);
     } else if (tipo === 'CORTE') {
-      this.categoriasAnimaisOpcoes = this.categoriasAnimaisCorte;
-      console.log('DEBUG - Definindo opções para CORTE:', this.categoriasAnimaisOpcoes);
+      this.categoriasAnimaisOpcoes = [...this.categoriasAnimaisCorte];
+      console.log('DEBUG: Definindo categoriasAnimaisOpcoes para CORTE:', this.categoriasAnimaisOpcoes);
     } else {
-      // fallback
-      this.categoriasAnimaisOpcoes = this.categoriasAnimaisCorte;
-      console.log('DEBUG - Usando fallback (CORTE):', this.categoriasAnimaisOpcoes);
+      // fallback para CORTE
+      this.categoriasAnimaisOpcoes = [...this.categoriasAnimaisCorte];
+      console.log('DEBUG: Definindo categoriasAnimaisOpcoes para CORTE (fallback):', this.categoriasAnimaisOpcoes);
     }
 
-    // Filtra categorias de corte a exibir nos dropdowns dos lotes com rótulos fixos
-    console.log('DEBUG - categoriasCorte disponíveis:', this.categoriasCorte);
-    console.log('DEBUG - categoriasCorte detalhadas:', this.categoriasCorte.map(c => ({ id: c.id, categoria: c.categoria, idade: c.idade })));
-    if (this.categoriasCorte && this.categoriasCorte.length) {
-      const pickFirst = (predicate: (c: CategoriaCorte) => boolean): CategoriaCorte | undefined => {
-        return this.categoriasCorte.find(predicate);
-      };
-      // Empurra o primeiro item que casar e sobrescreve o rótulo para o nome fixo
-      const pushFixed = (arr: CategoriaCorte[], predicate: (c: CategoriaCorte) => boolean, fixedLabel: string): void => {
-        const item = pickFirst(predicate);
-        console.log(`DEBUG - Procurando por "${fixedLabel}":`, item);
-        if (item) arr.push({ ...item, categoria: fixedLabel });
-      };
-
+    // Filtra categorias para os dropdowns dos lotes com rótulos padronizados
+    console.log('DEBUG: Iniciando filtragem de categorias para dropdowns dos lotes');
+    if (tipo === 'LEITE' && this.categoriasLeite && this.categoriasLeite.length) {
+      console.log('DEBUG: Processando categorias para tipo LEITE');
+      // Para LEITE, usar categorias de leite
       const result: CategoriaCorte[] = [];
-      const nome = (s: string | undefined) => (s || '').toLowerCase();
-      const isVacaLeiteira = (c: CategoriaCorte) => {
-        const n = nome(c.categoria);
-        return n.includes('vaca') && (n.includes('leite') || n.includes('lact') || n.includes('ordenh'));
+      const nome = (s: string | undefined) => (s || '').toLowerCase().trim();
+      
+      // Função auxiliar para encontrar categoria por predicado
+      const encontrarCategoria = (predicate: (c: CategoriaLeite) => boolean): CategoriaLeite | undefined => {
+        return this.categoriasLeite.find(predicate);
       };
-      const isVacaSeca = (c: CategoriaCorte) => {
-        const n = nome(c.categoria);
-        return n.includes('vaca') && (n.includes('seca') || n.includes('nao lact') || n.includes('não lact'));
+      
+      // Função auxiliar para adicionar categoria com label padronizado
+      const adicionarCategoria = (predicate: (c: CategoriaLeite) => boolean, labelPadronizado: string): void => {
+        const categoria = encontrarCategoria(predicate);
+        console.log(`DEBUG: Procurando categoria de leite para "${labelPadronizado}":`, categoria);
+        if (categoria) {
+          // Converter CategoriaLeite para CategoriaCorte para compatibilidade
+          result.push({ 
+            id: categoria.id!, 
+            categoria: labelPadronizado, 
+            idade: categoria.idade || '',
+            dataCriacao: categoria.dataCriacao,
+            dataAtualizacao: categoria.dataAtualizacao
+          });
+          console.log(`DEBUG: Categoria "${labelPadronizado}" adicionada ao resultado`);
+        } else {
+          console.log(`DEBUG: Categoria "${labelPadronizado}" NÃO encontrada`);
+        }
       };
-      const isConfinado = (c: CategoriaCorte) => nome(c.categoria).includes('confin');
 
-      if (tipo === 'LEITE') {
-        console.log('DEBUG - Filtrando categorias para LEITE');
-        // Bezerro, Novilha, Vaca leiteira, Vaca seca, Touro
-        pushFixed(result, c => nome(c.categoria).includes('bezerro') || nome(c.categoria).includes('bezerra'), 'Bezerro');
-        pushFixed(result, c => nome(c.categoria).includes('novilha') && !isConfinado(c), 'Novilha');
-        // Para "Vaca leiteira", usar a categoria "Vaca" (não confinada)
-        pushFixed(result, c => nome(c.categoria) === 'vaca' && !isConfinado(c), 'Vaca leiteira');
-        // Para "Vaca seca", usar a categoria "Vaca confinada" como alternativa
-        pushFixed(result, c => nome(c.categoria).includes('vaca') && isConfinado(c), 'Vaca seca');
-        pushFixed(result, c => nome(c.categoria).includes('touro'), 'Touro');
-      } else {
-        // CORTE: Bezerro, Novilho, Novilha, Boi, Vaca, Boi confinado, Vaca confinada, Touro
-        pushFixed(result, c => nome(c.categoria).includes('bezerro') || nome(c.categoria).includes('bezerra'), 'Bezerro');
-        pushFixed(result, c => nome(c.categoria).includes('novilho'), 'Novilho');
-        pushFixed(result, c => nome(c.categoria).includes('novilha'), 'Novilha');
-        pushFixed(result, c => nome(c.categoria).includes('boi') && !isConfinado(c), 'Boi');
-        pushFixed(result, c => nome(c.categoria).includes('vaca') && !isVacaLeiteira(c) && !isVacaSeca(c) && !isConfinado(c), 'Vaca');
-        pushFixed(result, c => nome(c.categoria).includes('boi') && isConfinado(c), 'Boi confinado');
-        pushFixed(result, c => nome(c.categoria).includes('vaca') && isConfinado(c), 'Vaca confinada');
-        pushFixed(result, c => nome(c.categoria).includes('touro'), 'Touro');
-      }
+      // Categorias para LEITE: Bezerro, Novilha, Vaca leiteira, Vaca seca, Touro
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        return n.includes('bezerro') || n.includes('bezerra');
+      }, 'Bezerro');
+      
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        return n.includes('novilha') && !n.includes('confin');
+      }, 'Novilha');
+      
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        return n.includes('vaca') && (n.includes('leite') || n.includes('lact') || n.includes('ordenh') || (n === 'vaca' && !n.includes('confin') && !n.includes('seca')));
+      }, 'Vaca leiteira');
+      
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        const match = n.includes('vaca') && n.includes('seca') && !n.includes('confin');
+        console.log(`DEBUG: Testando "Vaca seca" para categoria de leite "${c.categoria}": nome="${n}", match=${match}`);
+        return match;
+      }, 'Vaca seca');
+      
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        return n.includes('touro');
+      }, 'Touro');
 
-      // Remover duplicados por id, garantir apenas as opções mapeadas
+      // Remove duplicados por ID
       const unique: CategoriaCorte[] = [];
       const ids = new Set<number>();
       for (const item of result) {
@@ -3099,9 +3308,90 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
         }
       }
       this.categoriasCorteFiltradas = unique;
+      console.log('DEBUG: Categorias filtradas para LEITE (final):', this.categoriasCorteFiltradas);
+    } else if (this.categoriasCorte && this.categoriasCorte.length) {
+      console.log('DEBUG: Processando categorias para tipo CORTE');
+      // Para CORTE, usar categorias de corte
+      const result: CategoriaCorte[] = [];
+      const nome = (s: string | undefined) => (s || '').toLowerCase().trim();
+      
+      // Função auxiliar para encontrar categoria por predicado
+      const encontrarCategoria = (predicate: (c: CategoriaCorte) => boolean): CategoriaCorte | undefined => {
+        return this.categoriasCorte.find(predicate);
+      };
+      
+      // Função auxiliar para adicionar categoria com label padronizado
+      const adicionarCategoria = (predicate: (c: CategoriaCorte) => boolean, labelPadronizado: string): void => {
+        const categoria = encontrarCategoria(predicate);
+        console.log(`DEBUG: Procurando categoria de corte para "${labelPadronizado}":`, categoria);
+        if (categoria) {
+          result.push({ ...categoria, categoria: labelPadronizado });
+          console.log(`DEBUG: Categoria "${labelPadronizado}" adicionada ao resultado`);
+        } else {
+          console.log(`DEBUG: Categoria "${labelPadronizado}" NÃO encontrada`);
+        }
+      };
+
+      // Categorias para CORTE: Bezerro, Novilho, Novilha, Boi, Vaca, Boi confinado, Vaca confinada, Touro
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        return n.includes('bezerro') || n.includes('bezerra');
+      }, 'Bezerro');
+      
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        return n.includes('novilho') && !n.includes('confin');
+      }, 'Novilho');
+      
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        return n.includes('novilha') && !n.includes('confin');
+      }, 'Novilha');
+      
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        return n.includes('boi') && !n.includes('confin');
+      }, 'Boi');
+      
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        return n.includes('vaca') && !n.includes('confin') && !n.includes('leite') && !n.includes('lact') && !n.includes('seca');
+      }, 'Vaca');
+      
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        return n.includes('boi') && n.includes('confin');
+      }, 'Boi confinado');
+      
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        return n.includes('vaca') && n.includes('confin');
+      }, 'Vaca confinada');
+      
+      adicionarCategoria(c => {
+        const n = nome(c.categoria);
+        return n.includes('touro');
+      }, 'Touro');
+
+      // Remove duplicados por ID
+      const unique: CategoriaCorte[] = [];
+      const ids = new Set<number>();
+      for (const item of result) {
+        if (item?.id != null && !ids.has(item.id)) {
+          unique.push(item);
+          ids.add(item.id);
+        }
+      }
+      this.categoriasCorteFiltradas = unique;
+      console.log('DEBUG: Categorias filtradas para CORTE (final):', this.categoriasCorteFiltradas);
     } else {
+      console.log('DEBUG: Nenhuma categoria disponível ou tipo não reconhecido');
       this.categoriasCorteFiltradas = [];
     }
+
+    console.log('DEBUG: atualizarOpcoesPorTipo finalizado. categoriasCorteFiltradas.length:', this.categoriasCorteFiltradas.length);
+    console.log('DEBUG: Categorias filtradas finais:', this.categoriasCorteFiltradas);
+    this.carregarTiposManejo();
   }
   
   // ===== Modal lateral: Distribuição por CAR (mock) =====
@@ -3269,7 +3559,7 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
     });
   }
 
-  // Quando a categoria muda para Bezerro/Bezerra, zerar idade de desmame
+  // Quando a categoria muda para Bezerro, zerar idade de desmame
   onCategoriaCorteChange(row: any): void {
     if (!row) return;
     if (this.isCategoriaBezerroById(row?.categoriaCorteId)) {
@@ -3297,7 +3587,7 @@ export class FaseRebanhoComponent implements OnInit, OnDestroy, OnChanges {
 
   isCategoriaBezerroById(id?: number): boolean {
     const label = (this.getCategoriaCorteLabelById(id) || '').toLowerCase();
-    return label.includes('bezerro') || label.includes('bezerra');
+    return label.includes('bezerro') || label.includes('bezerra') || label === 'bezerro' || label === 'bezerra';
   }
 
   // Função para verificar se deve mostrar a coluna de idade de desmame
